@@ -1,0 +1,142 @@
+.b-button
+{
+    background: none;
+
+    border: none;
+
+    color: #333;
+
+    cursor: pointer;
+
+    display: inline-block;
+
+    font: 15px/22px Arial,sans-serif;
+
+    padding: 5px 15px;
+
+    position: relative;
+
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+
+    z-index: 1;
+}
+
+.b-button:before
+{
+    background: #999;
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0, rgba(0,0,0,.2)), color-stop(1, rgba(0,0,0,.38)));
+    background: -webkit-linear-gradient(top, rgba(0,0,0,.2) 0%, rgba(0,0,0,.38) 100%);
+    background: -moz-linear-gradient(top, rgba(0,0,0,.2) 0%, rgba(0,0,0,.38) 100%);
+    background: -ms-linear-gradient(top, rgba(0,0,0,.2) 0%, rgba(0,0,0,.38) 100%);
+    background: -o-linear-gradient(top, rgba(0,0,0,.2) 0%, rgba(0,0,0,.38) 100%);
+    background: linear-gradient(to bottom, rgba(0,0,0,.2) 0%, rgba(0,0,0,.38) 100%);
+
+    -webkit-border-radius: 3px;
+       -moz-border-radius: 3px;
+         -o-border-radius: 3px;
+            border-radius: 3px;
+
+    bottom: 0;
+
+    box-shadow: 0 1px 0 rgba(0,0,0,.07);
+
+    content: '';
+
+    left: 0;
+
+    position: absolute;
+
+    right: 0;
+
+    top: 0;
+
+    z-index: -1;
+}
+
+.b-button:after
+{
+    background: #eee;
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0, #fff), color-stop(1, #eee));
+    background: -webkit-linear-gradient(top, #fff 0%, #eee 100%);
+    background: -moz-linear-gradient(top, #fff 0%, #eee 100%);
+    background: -ms-linear-gradient(top, #fff 0%, #eee 100%);
+    background: -o-linear-gradient(top, #fff 0%, #eee 100%);
+    background: linear-gradient(to bottom, #fff 0%, #eee 100%);
+
+    -webkit-border-radius: 2px;
+       -moz-border-radius: 2px;
+         -o-border-radius: 2px;
+            border-radius: 2px;
+
+    bottom: 1px;
+
+    content: '';
+
+    left: 1px;
+
+    position: absolute;
+
+    right: 1px;
+
+    top: 1px;
+
+    z-index: -1;
+}
+
+.b-button:hover:before
+{
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0, rgba(0,0,0,.22)), color-stop(1, rgba(0,0,0,.4)));
+    background: -webkit-linear-gradient(top, rgba(0,0,0,.22) 0%, rgba(0,0,0,.4) 100%);
+    background: -moz-linear-gradient(top, rgba(0,0,0,.22) 0%, rgba(0,0,0,.4) 100%);
+    background: -ms-linear-gradient(top, rgba(0,0,0,.22) 0%, rgba(0,0,0,.4) 100%);
+    background: -o-linear-gradient(top, rgba(0,0,0,.22) 0%, rgba(0,0,0,.4) 100%);
+    background: linear-gradient(to bottom, rgba(0,0,0,.22) 0%, rgba(0,0,0,.4) 100%);
+}
+
+.b-button:hover:after
+{
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0, #fff), color-stop(1, #f6f5f3));
+    background: -webkit-linear-gradient(top, #fff 0%, #f6f5f3 100%);
+    background: -moz-linear-gradient(top, #fff 0%, #f6f5f3 100%);
+    background: -ms-linear-gradient(top, #fff 0%, #f6f5f3 100%);
+    background: -o-linear-gradient(top, #fff 0%, #f6f5f3 100%);
+    background: linear-gradient(to bottom, #fff 0%, #f6f5f3 100%);
+}
+
+.b-button:focus
+{
+    outline: none;
+}
+
+.b-button::-moz-focus-inner
+{
+    border: none;
+}
+
+.b-button:focus:before
+{
+    box-shadow: 0 1px 0 rgba(0,0,0,.07),
+                0 0 6px 2px rgba(255,204,0,.7);
+}
+
+.b-button:active
+{
+    color: rgba(0,0,0,0);
+    color: #333\9;
+
+    text-shadow: 0 1px #333;
+    text-shadow: none\9;
+}
+
+.b-button:active:before
+{
+    box-shadow: 0 2px 1px -1px rgba(0,0,0,.4) inset,
+                0 1px 0 rgba(255,255,255,.2);
+}
+
+.b-button:active:after
+{
+    box-shadow: 0 1px 3px -1px rgba(0,0,0,.5) inset;
+}
