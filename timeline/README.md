@@ -36,7 +36,7 @@ To begin using **Timeline**:
 	
 
 | Key | Description | Units |
-|---------------------------|
+| --- | ----------- | ----- |
 |`minTimeframe`| beginning point of the history | integer |
 |`maxTimeframe`| ending point of the history | integer |
 |`minViewport` | represents the minimum possible size of viewport | float |
@@ -61,7 +61,7 @@ You can pass a function as a value of any key, this function will be called to r
 	});
 	
 | Callback | Description | Signature | Return value |
-|------------------------------------|--------------|
+| -------- | ----------- |---------- | ------------ |
 | `getEvents` | called when **Timeline** needs to retrieve events for a certain timeframe range | `getEventsCallback(timeframeFrom, timeframeTo)` | Not expected |
 | `getTicks`  | called when **Timeline** wants to create time ticks for certain timeframe | `getTicksCallback(timeframeNumber)` | Array of labels, for example `[00:00, 03:00, 06:00, ...]` |
 | `click`     | called when user has clicked on an event | `clickCallback(domEventObject, timelineEventId)` | Not expected |
@@ -93,7 +93,7 @@ Add a set of events for certain timeframe range.
 Event object description:	
 
 | Property | Description | Type |
-|-------------------------------|
+| -------- | ----------- | ---- |
 | `id`    | unique event identifier. If an event with this identified has been pushed before, it will be updated | string |
 | `title` | text label to display next to event's visual representation | string |
 | `begin` | beginning point of an event | float |
