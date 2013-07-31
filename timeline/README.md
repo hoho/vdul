@@ -26,7 +26,6 @@ To begin using **Timeline**:
 		minViewport:   numberOrFunc,
 		maxViewport:   numberOrFunc,
 		curViewport:   numberOfFunc,
-		position:      intOrFunc,
 		now:           intOrFunc,
 		preloadBefore: intOrFunc,
 		preloadAfter:  intOrFunc,
@@ -41,7 +40,6 @@ To begin using **Timeline**:
 |`minViewport`   | represents minimum possible viewport size in timeframes | float |
 |`maxViewport`   | represents maximum possible viewport size in timeframes | float |
 |`curViewport`   | represents current viewport size in timeframes | float |
-|`position`      | current viewport position | integer (between `minTime` and  `maxTime`) |
 |`now`           | represents *now*, everything that's after *now* will be covered by semitransparent overlay | integer |
 |`preloadBefore` | request this many timeframes before viewport position | integer |
 |`preloadAfter`  | request this many timeframes after viewport position | integer |
@@ -67,7 +65,7 @@ You can pass a function as a value of any key, this function will be called to r
 | `click`     | called when user has clicked on an event | `clickCallback(domEventObject, timelineEventId)` | Not expected |
 | `getTimeByTimeframe` | get timestamp by timeframe number | `getTimeByTimeframeCallback(timeframe)` | integer |
 | `getTimeframeByTime` | get timeframe number for a timestamp | `getTimeframeByTimeCallback(time)` | integer |
-| `getTicks`  | called when **Timeline** wants to create time ticks for certain timeframe | `getTicksCallback(timefrmeNumber, timeFrom, timeTo)` | array of labels, for example `[00:00, 03:00, 06:00, …]` |
+| `getTicks`  | called when **Timeline** wants to create time ticks for certain timeframe | `getTicksCallback(timefrmeNumber, timeFrom, timeTo)` | array of ticks, for example `[{left: '0%', label: '00:00'}, {left: '12.5%', label: '03:00'}, …]` |
 
 In every callback `this` is pointing to the current **Timeline** object.
 
@@ -116,7 +114,23 @@ Remove a set of events with certain identifiers.
 
 ###### .error()
 
-This method should be called on a failure of loading events for certain timeframe range.
+This method should be called on a failure of loading events for a certain time range.
 
 	timeline.error(timeFrom, timeTo);
 
+---
+
+###### .position()
+
+Returns or sets current viewport position.
+
+	timeline.position();
+	timeline.position(new Date().getTime());
+
+---
+
+###### .update()
+
+Call this method to force **Timeline** update.
+
+	timeline.update();
