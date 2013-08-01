@@ -17,8 +17,8 @@
     position: relative;
 
     -webkit-user-select: none;
-    -moz-user-select: none;
-    user-select: none;
+       -moz-user-select: none;
+            user-select: none;
 
     z-index: 1;
 }
