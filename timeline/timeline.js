@@ -19,7 +19,9 @@
         ];
 
     T = window.Timeline = function(container) {
-        this.bounds = {
+        var self = this;
+
+        self.bounds = {
             minTime:       0,
             maxTime:       0,
             minViewport:   1,
@@ -32,7 +34,13 @@
             autoUpdate:    false
         };
 
-        this._timeframes = {};
+        self._timeframes = {};
+
+        self._elem = $C(container, true)
+            .div({'class': 'b-timeline'})
+                .div({'class': 'b-timeline__timeframes'})
+                    .act(function() { self._timeframesElem = this; })
+        .end(3);
     };
 
 
@@ -73,7 +81,7 @@
         },
 
         error: function() {
-
+            this._scheduleUpdate();
         },
 
         position: function(pos) {
@@ -146,12 +154,14 @@
                     self._addTimeframe(i);
                 }
 
-                if (!(i = self._getMissingTime())) {
+                self._positionTimeframes();
+
+                if (!(val = self._getMissingTime())) {
                     return;
                 }
 
-                timeFrom = i.timeFrom;
-                timeTo = i.timeTo;
+                timeFrom = val.timeFrom;
+                timeTo = val.timeTo;
             }
 
             self._getEvents(timeFrom, timeTo);
@@ -180,12 +190,47 @@
 
         _addTimeframe: function(timeframe) {
             if (isUndefined(this._timeframes[timeframe])) {
-                this._timeframes[timeframe] = false;
+                var t = this._timeframes[timeframe] = {},
+                    timeFrom = this._getTimeByTimeframe(timeframe),
+                    timeTo = this._getTimeByTimeframe(timeframe + 1);
+
+                $C(this._timeframesElem)
+                    .div({'class': 'b-timeline__timeframe'})
+                        .act(function() { t.elem = this; })
+                        .each(this._getTicks(timeFrom, timeTo))
+                            .div({'class': 'b-timeline__tick', style: {left: function(index, item) { return item.left; }}})
+                                .span()
+                                    .text(function(index, item) { return item.label; })
+                .end(5);
             }
         },
 
         _removeTimeframe: function(timeframe) {
-            delete this._timeframes[timeframe];
+            var t = this._timeframes[timeframe];
+
+            if (t) {
+                this._timeframesElem.removeChild(t.elem);
+                delete this._timeframes[timeframe];
+            }
+        },
+
+        _positionTimeframes: function() {
+            var timeframeWidth = Math.ceil(this._timeframesElem.clientWidth * (1 / this._bounds.curViewport)),
+                i,
+                pos = this._getTimeframeByTime(this._position),
+                posFrom = this._getTimeByTimeframe(pos),
+                posTo = this._getTimeByTimeframe(pos + 1),
+                elemStyle;
+
+            posFrom = - Math.round(timeframeWidth * (this._position - posFrom) / (posTo - posFrom))
+                      - (pos - this._timeframeFrom) * timeframeWidth;
+
+            for (i = this._timeframeFrom; i < this._timeframeTo; i++) {
+                elemStyle = this._timeframes[i].elem.style;
+                elemStyle.left = posFrom + 'px';
+                elemStyle.width = timeframeWidth + 'px';
+                posFrom += timeframeWidth;
+            }
         },
 
         _getMissingTime: function() {
@@ -194,13 +239,11 @@
             timeframeFrom = this._timeframeFrom;
             timeframeTo = this._timeframeTo - 1;
 
-            console.log(timeframeFrom, timeframeTo);
-
-            while (timeframeFrom < this._timeframeTo && this._timeframes[timeframeFrom] !== false) {
+            while (timeframeFrom < this._timeframeTo && this._timeframes[timeframeFrom].data) {
                 timeframeFrom++;
             }
 
-            while (timeframeTo >= this._timeframeFrom && this._timeframes[timeframeTo] !== false) {
+            while (timeframeTo >= this._timeframeFrom && this._timeframes[timeframeTo].data) {
                 timeframeTo--;
             }
 
@@ -230,7 +273,7 @@
                 undefined;
         },
 
-        _getTicks: function(timefrmeNumber, timeFrom, timeTo) {
+        _getTicks: function(timeFrom, timeTo) {
             return defaultTicks;
         }
     };

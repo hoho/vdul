@@ -1,0 +1,52 @@
+.b-timeline
+{
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+    font-size: 10px;
+
+    font-weight: 100;
+
+    height: 100%;
+
+    position: relative;
+
+    width: 100%;
+}
+
+.b-timeline__timeframes
+{
+    bottom: 0;
+
+    left: 0;
+
+    position: absolute;
+
+    right: 0;
+
+    top: 0;
+}
+
+.b-timeline__timeframe
+{
+    bottom: 0;
+
+    position: absolute;
+
+    top: 0;
+}
+
+.b-timeline__tick
+{
+    border-left: 1px solid #eee;
+
+    bottom: 0;
+
+    position: absolute;
+
+    top: 0;
+}
+
+.b-timeline__tick span
+{
+    margin: 2px;
+}

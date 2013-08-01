@@ -65,7 +65,7 @@ You can pass a function as a value of any key, this function will be called to r
 | `click`     | called when user has clicked on an event | `clickCallback(domEventObject, timelineEventId)` | Not expected |
 | `getTimeByTimeframe` | get timestamp by timeframe number | `getTimeByTimeframeCallback(timeframe)` | integer |
 | `getTimeframeByTime` | get timeframe number for a timestamp | `getTimeframeByTimeCallback(time)` | integer |
-| `getTicks`  | called when **Timeline** wants to create time ticks for certain timeframe | `getTicksCallback(timefrmeNumber, timeFrom, timeTo)` | array of ticks, for example `[{left: '0%', label: '00:00'}, {left: '12.5%', label: '03:00'}, …]` |
+| `getTicks`  | called when **Timeline** wants to create time ticks for certain timeframe | `getTicksCallback(timeFrom, timeTo)` | array of ticks, for example `[{left: '0%', label: '00:00'}, {left: '12.5%', label: '03:00'}, …]` |
 
 In every callback `this` is pointing to the current **Timeline** object.
 
