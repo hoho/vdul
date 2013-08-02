@@ -19,7 +19,8 @@
         ];
 
     T = window.Timeline = function(container) {
-        var self = this;
+        var self = this,
+            resizeTimer;
 
         self.bounds = {
             minTime:       0,
@@ -41,6 +42,17 @@
                 .div({'class': 'b-timeline__timeframes'})
                     .act(function() { self._timeframesElem = this; })
         .end(3);
+
+        window.addEventListener('resize', function() {
+            if (resizeTimer) {
+                window.clearTimeout(resizeTimer);
+            }
+
+            resizeTimer = window.setTimeout(function() {
+                self._positionTimeframes();
+                resizeTimer = null;
+            }, 100);
+        });
     };
 
 
@@ -162,6 +174,8 @@
 
                 timeFrom = val.timeFrom;
                 timeTo = val.timeTo;
+            } else {
+                self._positionTimeframes();
             }
 
             self._getEvents(timeFrom, timeTo);
@@ -201,6 +215,12 @@
                             .div({'class': 'b-timeline__tick', style: {left: function(index, item) { return item.left; }}})
                                 .span()
                                     .text(function(index, item) { return item.label; })
+                        .end(3)
+                        .div({'class': 'b-timeline__events-wrapper'})
+                            .div({'class': 'b-timeline__events'})
+                                .act(function() { t.eventsElem = this; })
+                                .div({'class': 'b-timeline__future-overlay'})
+                                    .act(function() { t.futureElem = this; })
                 .end(5);
             }
         },
@@ -220,16 +240,46 @@
                 pos = this._getTimeframeByTime(this._position),
                 posFrom = this._getTimeByTimeframe(pos),
                 posTo = this._getTimeByTimeframe(pos + 1),
-                elemStyle;
+                timeframe,
+                elemStyle,
+                timeFrom,
+                timeTo,
+                now = this._bounds.now;
 
             posFrom = - Math.round(timeframeWidth * (this._position - posFrom) / (posTo - posFrom))
                       - (pos - this._timeframeFrom) * timeframeWidth;
 
+            if (!isUndefined(now)) {
+                timeFrom = this._getTimeByTimeframe(this._timeframeFrom);
+            }
+
             for (i = this._timeframeFrom; i < this._timeframeTo; i++) {
-                elemStyle = this._timeframes[i].elem.style;
+                // TODO: Assign left and width only in case they have changed
+                //       since previous _positionTimeframes() call.
+
+                timeframe = this._timeframes[i];
+
+                elemStyle = timeframe.elem.style;
                 elemStyle.left = posFrom + 'px';
                 elemStyle.width = timeframeWidth + 'px';
+
                 posFrom += timeframeWidth;
+
+                if (!isUndefined(now)) {
+                    // Update future overlays positions.
+                    timeTo = this._getTimeByTimeframe(i + 1);
+
+                    elemStyle = timeframe.futureElem.style;
+
+                    if (now >= timeTo) {
+                        elemStyle.display = 'none';
+                    } else {
+                        elemStyle.display = '';
+                        elemStyle.left = (timeFrom >= now ? 0 : Math.round(timeframeWidth * (now - timeFrom) / (timeTo - timeFrom))) + 'px';
+                    }
+
+                    timeFrom = timeTo;
+                }
             }
         },
 
