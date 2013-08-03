@@ -75,8 +75,8 @@
 
     bottom: -1000px;
 
-    opacity: .6;
-    -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=60)";
+    opacity: .65;
+    -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=65)";
 
     position: absolute;
 
@@ -85,4 +85,50 @@
     top: -1000px;
 
     z-index: 2;
+}
+
+.b-timeline__event
+{
+    background: orange;
+
+    height: 10px;
+
+    position: absolute;
+
+    z-index: 1;
+}
+
+.b-timeline__event-overlay
+{
+    cursor: pointer;
+
+    font-size: 11px;
+
+    padding-top: 13px;
+
+    position: absolute;
+
+    white-space: nowrap;
+
+    z-index: 3;
+}
+
+.b-timeline__event_type_point
+{
+    border-radius: 8px;
+
+    height: 16px;
+
+    margin-left: -8px;
+
+    width: 16px;
+}
+
+.b-timeline__event-overlay_type_point
+{
+    height: 16px;
+
+    margin-left: -8px;
+
+    padding: 2px 0 0 20px;
 }

@@ -36,6 +36,7 @@
         };
 
         self._timeframes = {};
+        self._events = {};
 
         self._elem = $C(container, true)
             .div({'class': 'b-timeline'})
@@ -50,10 +51,17 @@
 
             resizeTimer = window.setTimeout(function() {
                 self._positionTimeframes();
+                self._positionEvents();
                 resizeTimer = null;
             }, 100);
         });
     };
+
+
+    T.EVENT_HEIGHT = 30;
+    T.EVENT_HSPACING = 30;
+    T.EVENT_VSPACING = 10;
+    T.LETTER_WIDTH = 7.5;
 
 
     T.prototype = {
@@ -84,11 +92,71 @@
             }
         },
 
-        push: function() {
+        push: function(events) {
+            var i, j,
+                event,
+                newEvent,
+                unadopted = [],
+                clearMarks;
+
+            for (i = 0; i < events.length; i++) {
+                event = events[i];
+
+                if (isUndefined(event.begin) && isUndefined(event.end)) {
+                    continue;
+                }
+
+                newEvent = {
+                    id:         event.id,
+                    title:      event.title || '',
+                    begin:      isUndefined(event.begin) ? event.end : event.begin,
+                    end:        event.end,
+                    marks:      Array.prototype.slice.call(event.marks || [], 0),
+                    color:      event.color,
+                    row:        undefined,
+                    tbegin:     undefined,
+                    tend:       undefined,
+                    elem1:      undefined,
+                    elem2:      undefined,
+                    positioned: false
+                };
+
+                if (event = this._events[newEvent.id]) {
+                    delete this._events[newEvent.id];
+
+                    newEvent.row = event.row; // We need to keep the row.
+
+                    // Event's DOM nodes are already created, no need to create
+                    // them again.
+                    newEvent.elem1 = event.elem1;
+
+                    if (newEvent.marks.length === event.marks.length) {
+                        for (j = 0; j < newEvent.marks.length; j++) {
+                            if (newEvent.marks[j] !== event.marks[j]) {
+                                clearMarks = true;
+                                break;
+                            }
+                        }
+                    } else {
+                        clearMarks = true;
+                    }
+
+                    if (clearMarks) {
+                        // Remove all the marks because they have changed.
+                        newEvent.elem1.innerHTML = '';
+                    }
+
+                    newEvent.elem2 = event.elem2;
+                }
+
+                unadopted.push(newEvent);
+            }
+
+            this._adoptEvents(unadopted);
             this._scheduleUpdate();
         },
 
-        remove: function() {
+        remove: function(eventIds) {
             this._scheduleUpdate();
         },
 
@@ -117,7 +185,8 @@
                 timeTo,
                 timeframeFrom,
                 timeframeTo,
-                i;
+                i,
+                unadopted = [];
 
             for (key in bounds) {
                 evaluatedBounds[key] = isFunction(val = bounds[key]) ? val() : val;
@@ -149,24 +218,25 @@
                 timeframeFrom = self._getTimeframeByTime(timeFrom);
                 timeframeTo = self._getTimeframeByTime(timeTo);
 
+                for (i = timeframeFrom; i < timeframeTo; i++) {
+                    self._addTimeframe(i);
+                }
+
                 if (!isUndefined(self._timeframeFrom)) {
                     for (i = self._timeframeFrom; i < timeframeFrom; i++) {
-                        self._removeTimeframe(i);
+                        self._removeTimeframe(i, unadopted);
                     }
 
                     for (i = timeframeTo; i < self._timeframeTo; i++) {
-                        self._removeTimeframe(i);
+                        self._removeTimeframe(i, unadopted);
                     }
                 }
 
                 self._timeframeFrom = timeframeFrom;
                 self._timeframeTo = timeframeTo;
 
-                for (i = timeframeFrom; i < timeframeTo; i++) {
-                    self._addTimeframe(i);
-                }
-
                 self._positionTimeframes();
+                self._adoptEvents(unadopted);
 
                 if (!(val = self._getMissingTime())) {
                     return;
@@ -204,7 +274,7 @@
 
         _addTimeframe: function(timeframe) {
             if (isUndefined(this._timeframes[timeframe])) {
-                var t = this._timeframes[timeframe] = {},
+                var t = this._timeframes[timeframe] = {events: [], unfinished: []},
                     timeFrom = this._getTimeByTimeframe(timeframe),
                     timeTo = this._getTimeByTimeframe(timeframe + 1);
 
@@ -225,17 +295,148 @@
             }
         },
 
-        _removeTimeframe: function(timeframe) {
-            var t = this._timeframes[timeframe];
+        _removeTimeframe: function(timeframe, unadopted) {
+            var t = this._timeframes[timeframe],
+                i,
+                event;
 
             if (t) {
+                for (i = 0; i < t.events.length; i++) {
+                    unadopted.push(event = this._events[t.events[i]]);
+                }
+
                 this._timeframesElem.removeChild(t.elem);
+
                 delete this._timeframes[timeframe];
             }
         },
 
+        _getTimeframeWidth: function() {
+            return Math.ceil(this._timeframesElem.clientWidth * (1 / this._bounds.curViewport));
+        },
+
+        _adoptEvents: function(events) {
+            if (events.length) {
+                var i,
+                    tmp,
+                    event,
+                    timeFrom,
+                    timeTo,
+                    timeframeFrom,
+                    timeframeTo,
+                    timeframeWidth = this._getTimeframeWidth(),
+                    timeframe,
+                    hspacing = T.EVENT_HSPACING / timeframeWidth,
+                    letterWidth = T.LETTER_WIDTH / timeframeWidth;
+
+                for (i = 0; i < events.length; i++) {
+                    event = events[i];
+
+                    // Get timeframes this event goes through.
+                    timeframeFrom = this._getTimeframeByTime(event.begin);
+                    timeframeTo = event.begin === event.end ?
+                        timeframeFrom
+                        :
+                        this._getTimeframeByTime(isUndefined(event.end) ? this._bounds.maxTime : event.end);
+
+                    if (timeframeTo < this._timeframeFrom || timeframeFrom >= this._timeframeTo) {
+                        // Event is out of current timeframes, skip it.
+                        continue;
+                    }
+
+                    // Getting event's parent timeframe.
+                    tmp = Math.round((timeframeFrom + timeframeTo) / 2);
+                    event.timeframe = timeframe = tmp < this._timeframeFrom ?
+                        this._timeframeFrom
+                        :
+                        tmp >= this._timeframeTo ?
+                            this._timeframeTo - 1
+                            :
+                            tmp;
+                    timeframe = this._timeframes[timeframe];
+
+                    // Getting event's left position in timeframes.
+                    timeFrom = this._getTimeByTimeframe(timeframeFrom);
+                    timeTo = this._getTimeByTimeframe(timeframeFrom + 1);
+                    event.tbegin = timeframeFrom + (event.begin - timeFrom) / (timeTo - timeFrom);
+
+                    if (!isUndefined(event.end)) {
+                        // Getting event's right position.
+                        if (event.begin === event.end) {
+                            // It's a point event.
+                            event.tend = event.tbegin;
+                            event.tend2 = event.tbegin + event.title.length * letterWidth + hspacing;
+                        } else {
+                            // It's an interval.
+                            timeFrom = this._getTimeByTimeframe(timeframeTo);
+                            timeTo = this._getTimeByTimeframe(timeframeTo + 1);
+                            event.tend = timeframeTo + (event.end - timeFrom) / (timeTo - timeFrom);
+                            event.tend2 = event.tbegin + event.title.length * letterWidth + hspacing;
+
+                            if (event.tend2 - event.tend < hspacing) {
+                                event.tend2 = event.tend + hspacing;
+                            }
+                        }
+                    }
+
+                    // Adding this event to timeframe's events and to
+                    // Timeline._events.
+                    timeframe.events.push(event.id);
+                    if (isUndefined(event.end)) {
+                        timeframe.unfinished.push(event.id);
+                    }
+                    this._events[event.id] = event;
+
+                    // Appending event's DOM nodes to timeframe's events
+                    // container.
+                    tmp = timeframe.eventsElem;
+
+                    if (event.elem1) {
+                        // DOM nodes are already created.
+                        tmp.appendChild(event.elem1);
+                        tmp.appendChild(event.elem2);
+
+                        // Just rewrite event's title.
+                        $C(event.elem2, true).text(event.title).end();
+                    } else {
+                        // Create new DOM nodes.
+                        $C(tmp)
+                            .div()
+                                .act(function() { event.elem1 = this; })
+                            .end()
+                            .div({title: event.title})
+                                .act(function() { event.elem2 = this; })
+                                .text(event.title)
+                        .end(2);
+                    }
+
+                    // Setting class names.
+                    event.elem1.className =
+                        'b-timeline__event' +
+                            (event.begin === event.end ?
+                                ' b-timeline__event_type_point'
+                                :
+                                isUndefined(event.end) ?
+                                    ' b-timeline__event_type_unfinished'
+                                    :
+                                    '');
+                    event.elem2.className =
+                        'b-timeline__event-overlay' +
+                            (event.begin === event.end ?
+                                ' b-timeline__event-overlay_type_point'
+                                :
+                                 '');
+
+                    // We need to position this event.
+                    event.positioned = false;
+                }
+
+                this._positionEvents();
+            }
+        },
+
         _positionTimeframes: function() {
-            var timeframeWidth = Math.ceil(this._timeframesElem.clientWidth * (1 / this._bounds.curViewport)),
+            var timeframeWidth = this._getTimeframeWidth(),
                 i,
                 pos = this._getTimeframeByTime(this._position),
                 posFrom = this._getTimeByTimeframe(pos),
@@ -275,12 +476,61 @@
                         elemStyle.display = 'none';
                     } else {
                         elemStyle.display = '';
-                        elemStyle.left = (timeFrom >= now ? 0 : Math.round(timeframeWidth * (now - timeFrom) / (timeTo - timeFrom))) + 'px';
+                        elemStyle.left = timeFrom >= now ? 0 : Math.round(timeframeWidth * (now - timeFrom) / (timeTo - timeFrom)) + 'px';
                     }
 
                     timeFrom = timeTo;
                 }
             }
+
+            this._positionUnfinishedEvents();
+        },
+
+        _positionEvents: function() {
+            var i,
+                j,
+                event,
+                item,
+                sweepLine = [],
+                timeframeWidth = this._getTimeframeWidth(),
+                elem1Style,
+                elem2Style,
+                rows = {};
+
+            for (i in this._events) {
+                event = this._events[i];
+
+                sweepLine.push({begin: true, event: event, sort: event.tbegin});
+                sweepLine.push({begin: false, event: event, sort: isUndefined(event.end) ? '' : event.tend2});
+            }
+
+            sweepLine.sort(function(a, b) {
+                return a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0;
+            });
+
+            for (i = 0; i < sweepLine.length; i++) {
+                item = sweepLine[i];
+                event = item.event;
+
+                if (item.begin) {
+                    elem1Style = event.elem1.style;
+                    elem2Style = event.elem2.style;
+
+                    elem1Style.left = elem2Style.left =
+                        Math.round((event.tbegin - event.timeframe) * timeframeWidth) + 'px';
+
+                    elem1Style.width = event.begin === event.end ? '' : Math.round((event.tend - event.tbegin) * timeframeWidth) + 'px';
+                    //elem2Style.width = Math.round((event.tend2 - event.tbegin) * timeframeWidth) + 'px';
+                } else {
+
+                }
+            }
+
+            this._positionUnfinishedEvents();
+        },
+
+        _positionUnfinishedEvents: function() {
+
         },
 
         _getMissingTime: function() {
