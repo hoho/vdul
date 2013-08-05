@@ -171,6 +171,47 @@
         },
 
         remove: function(eventIds) {
+            var i,
+                j,
+                id,
+                events,
+                event,
+                timeframe;
+
+            for (i = 0; i < eventIds.length; i++) {
+                id = eventIds[i];
+
+                if (event = this._events[id]) {
+                    // TODO: Optimize timeframe event lists scans.
+                    delete this._events[id];
+
+                    timeframe = this._timeframes[event.timeframe];
+
+                    events = timeframe.events;
+
+                    for (j = 0; j < events.length; j++) {
+                        if (events[j] === id) {
+                            events.splice(j, 1);
+                            break;
+                        }
+                    }
+
+                    if (isUndefined(event.end)) {
+                        events = timeframe.unfinished;
+
+                        for (j = 0; j < events.length; j++) {
+                            if (events[j] === id) {
+                                events.splice(j, 1);
+                                break;
+                            }
+                        }
+                    }
+
+                    timeframe.eventsElem.removeChild(event.elem1);
+                    timeframe.eventsElem.removeChild(event.elem2);
+                }
+            }
+
             this._scheduleUpdate();
         },
 
