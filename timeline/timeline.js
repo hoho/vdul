@@ -16,7 +16,20 @@
             {left: '62.5%', label: '15:00'},
             {left: '75%',   label: '18:00'},
             {left: '87.5%', label: '21:00'}
-        ];
+        ],
+
+        css = function(elem, props) {
+            var style = elem.style,
+                prop,
+                val;
+
+            for (prop in props) {
+                val = props[prop];
+                // TODO: Add 'px' suffix to a certain properies only (left,
+                //       width and so on).
+                style[prop] = val + (typeof val === 'number' ? 'px' : '');
+            }
+        };
 
     T = window.Timeline = function(container) {
         var self = this,
@@ -51,7 +64,7 @@
 
             resizeTimer = window.setTimeout(function() {
                 self._positionTimeframes();
-                self._positionEvents();
+                self._positionEvents(true);
                 resizeTimer = null;
             }, 100);
         });
@@ -118,7 +131,8 @@
                     tend:       undefined,
                     elem1:      undefined,
                     elem2:      undefined,
-                    positioned: false
+                    positioned: false,
+                    left:       undefined
                 };
 
                 if (event = this._events[newEvent.id]) {
@@ -195,14 +209,18 @@
             // TODO: Check values.
             self._bounds = evaluatedBounds;
 
+            if (self._getTimeframeByTime(self._position) > (pos = self._getTimeframeByTime(evaluatedBounds.maxTime) - evaluatedBounds.curViewport)) {
+                self._position = self._getTimeByTimeframe(pos);
+            }
+
             if (self._position < evaluatedBounds.minTime) {
                 self._position = evaluatedBounds.minTime;
             }
 
             pos = self._getTimeframeByTime(isUndefined(self._position) ? evaluatedBounds.minTime : self._position);
 
-            timeFrom = self._getTimeByTimeframe(pos - evaluatedBounds.preloadBefore);
-            timeTo = self._getTimeByTimeframe(pos + evaluatedBounds.curViewport + evaluatedBounds.preloadAfter);
+            timeFrom = self._getTimeByTimeframe(Math.floor(pos - evaluatedBounds.preloadBefore));
+            timeTo = self._getTimeByTimeframe(Math.ceil(pos + evaluatedBounds.curViewport + evaluatedBounds.preloadAfter));
 
             if (timeFrom < evaluatedBounds.minTime) {
                 timeFrom = evaluatedBounds.minTime;
@@ -441,14 +459,15 @@
                 pos = this._getTimeframeByTime(this._position),
                 posFrom = this._getTimeByTimeframe(pos),
                 posTo = this._getTimeByTimeframe(pos + 1),
+                left,
                 timeframe,
-                elemStyle,
                 timeFrom,
                 timeTo,
-                now = this._bounds.now;
+                now = this._bounds.now,
+                cssProps;
 
-            posFrom = - Math.round(timeframeWidth * (this._position - posFrom) / (posTo - posFrom))
-                      - (pos - this._timeframeFrom) * timeframeWidth;
+            left =  - Math.round(timeframeWidth * (this._position - posFrom) / (posTo - posFrom))
+                    - (pos - this._timeframeFrom) * timeframeWidth;
 
             if (!isUndefined(now)) {
                 timeFrom = this._getTimeByTimeframe(this._timeframeFrom);
@@ -460,41 +479,44 @@
 
                 timeframe = this._timeframes[i];
 
-                elemStyle = timeframe.elem.style;
-                elemStyle.left = posFrom + 'px';
-                elemStyle.width = timeframeWidth + 'px';
+                css(timeframe.elem, {left: left, width: timeframeWidth});
 
-                posFrom += timeframeWidth;
+                left += timeframeWidth;
 
                 if (!isUndefined(now)) {
                     // Update future overlays positions.
                     timeTo = this._getTimeByTimeframe(i + 1);
 
-                    elemStyle = timeframe.futureElem.style;
+                    cssProps = {};
 
                     if (now >= timeTo) {
-                        elemStyle.display = 'none';
+                        cssProps.display = 'none';
                     } else {
-                        elemStyle.display = '';
-                        elemStyle.left = timeFrom >= now ? 0 : Math.round(timeframeWidth * (now - timeFrom) / (timeTo - timeFrom)) + 'px';
+                        cssProps.display = '';
+                        cssProps.left = timeFrom >= now ?
+                            0
+                            :
+                            Math.round(timeframeWidth * (now - timeFrom) / (timeTo - timeFrom));
                     }
+
+                    css(timeframe.futureElem, cssProps);
 
                     timeFrom = timeTo;
                 }
             }
 
-            this._positionUnfinishedEvents();
+            this._setUnfinishedEventsWidths();
         },
 
-        _positionEvents: function() {
+        _positionEvents: function(force) {
             var i,
                 j,
                 event,
                 item,
                 sweepLine = [],
                 timeframeWidth = this._getTimeframeWidth(),
-                elem1Style,
-                elem2Style,
+                left,
+                top,
                 rows = {};
 
             for (i in this._events) {
@@ -513,24 +535,85 @@
                 event = item.event;
 
                 if (item.begin) {
-                    elem1Style = event.elem1.style;
-                    elem2Style = event.elem2.style;
+                    if (!force && event.positioned) {
+                        rows[event.row] = true;
+                        continue;
+                    }
 
-                    elem1Style.left = elem2Style.left =
-                        Math.round((event.tbegin - event.timeframe) * timeframeWidth) + 'px';
+                    left = Math.round((event.tbegin - event.timeframe) * timeframeWidth);
 
-                    elem1Style.width = event.begin === event.end ? '' : Math.round((event.tend - event.tbegin) * timeframeWidth) + 'px';
-                    //elem2Style.width = Math.round((event.tend2 - event.tbegin) * timeframeWidth) + 'px';
+                    if (isUndefined(event.row)) {
+                        j = 0;
+
+                        while (rows[j]) {
+                            j++;
+                        }
+
+                        event.row = j;
+                    }
+
+                    rows[event.row] = true;
+
+                    top = Math.ceil(event.row / 2) * (T.EVENT_HEIGHT + T.EVENT_VSPACING) * (event.row % 2 === 0 ? 1 : -1);
+
+                    css(event.elem1, {
+                        left: left,
+                        top: top,
+                        width: event.begin === event.end ? '' : Math.round((event.tend - event.tbegin) * timeframeWidth)
+                    });
+
+                    css(event.elem2, {
+                        left: left,
+                        top: top,
+                        width: Math.round((event.tend2 - event.tbegin) * timeframeWidth)
+                    });
+
+                    event.left = left;
+
+                    event.positioned = true;
                 } else {
-
+                    rows[event.row] = undefined;
                 }
             }
 
-            this._positionUnfinishedEvents();
+            this._setUnfinishedEventsWidths();
         },
 
-        _positionUnfinishedEvents: function() {
+        _setUnfinishedEventsWidths: function() {
+            var i,
+                j,
+                unfinished,
+                timeframeWidth = this._getTimeframeWidth(),
+                now = this._bounds.now,
+                timeframeFrom,
+                timeFrom,
+                timeTo,
+                width,
+                event;
 
+            timeframeFrom = this._getTimeframeByTime(now);
+
+            if (timeframeFrom >= this._timeframeTo) {
+                now = this._getTimeByTimeframe(this._timeframeTo);
+                timeframeFrom = this._timeframeTo;
+            }
+
+            timeFrom = this._getTimeByTimeframe(timeframeFrom);
+            timeTo = this._getTimeByTimeframe(timeframeFrom + 1);
+
+            width = Math.round((timeframeFrom - this._timeframeFrom + 1) * timeframeWidth - ((timeTo - now) / (timeTo - timeFrom)) * timeframeWidth);
+
+            for (i = this._timeframeFrom; i < this._timeframeTo; i++) {
+                unfinished = this._timeframes[i].unfinished;
+
+                for (j = 0; j < unfinished.length; j++) {
+                    event = this._events[unfinished[j]];
+                    css(event.elem1, {width: width - event.left});
+                    css(event.elem2, {width: width - event.left});
+                }
+
+                width -= timeframeWidth;
+            }
         },
 
         _getMissingTime: function() {

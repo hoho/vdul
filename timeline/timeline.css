@@ -132,3 +132,18 @@
 
     padding: 2px 0 0 20px;
 }
+
+.b-timeline__event_type_unfinished:after
+{
+    border: 5px solid transparent;
+
+    border-left-color: orange;
+
+    content: '';
+
+    height: 0;
+
+    left: 100%;
+
+    position: absolute;
+}
