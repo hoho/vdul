@@ -71,6 +71,16 @@
                 resizeTimer = null;
             }, 100);
         });
+
+        container.addEventListener('click', function(e) {
+            if ((e.toElement.className || '').indexOf('b-timeline__event-overlay') >= 0) {
+                var id = e.toElement.getAttribute('data-id');
+
+                if (id) {
+                    self._click(id);
+                }
+            }
+        });
     };
 
 
@@ -146,6 +156,7 @@
                     // Event's DOM nodes are already created, no need to create
                     // them again.
                     newEvent.elem1 = event.elem1;
+                    css(newEvent.elem1, {background: newEvent.color || ''});
 
                     if (newEvent.marks.length === event.marks.length) {
                         for (j = 0; j < newEvent.marks.length; j++) {
@@ -456,10 +467,10 @@
                     } else {
                         // Create new DOM nodes.
                         $C(tmp)
-                            .div()
+                            .div(event.color ? {style: {background: event.color}} : undefined)
                                 .act(function() { event.elem1 = this; })
                             .end()
-                            .div({title: event.title})
+                            .div({'data-id': event.id, title: event.title})
                                 .act(function() { event.elem2 = this; })
                                 .text(event.title)
                         .end(2);
