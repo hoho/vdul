@@ -38,19 +38,14 @@
 
     top: 0;
 
-    -webkit-transition: background-color .5s;
-       -moz-transition: background-color .5s;
-         -o-transition: background-color .5s;
-            transition: background-color .5s;
 
+    -webkit-transition: background-color .5s;
+    -moz-transition: background-color .5s;
+    -o-transition: background-color .5s;
+    transition: background-color .5s;
 }
 
 .b-timeline__timeframe_loading
-{
-    background-color: #eee;
-}
-
-.b-timeline__loading
 {
     -webkit-animation: progress-bar-stripes .5s linear infinite;
        -moz-animation: progress-bar-stripes .5s linear infinite;
@@ -58,40 +53,13 @@
          -o-animation: progress-bar-stripes .5s linear infinite;
             animation: progress-bar-stripes .5s linear infinite;
 
-    background-color: #999;
+    background-color: rgba(0,0,0,.15);
     background-image: -webkit-gradient(linear, 0 100%, 100% 0, color-stop(0.25, rgba(255, 255, 255, 0.15)), color-stop(0.25, transparent), color-stop(0.5, transparent), color-stop(0.5, rgba(255, 255, 255, 0.15)), color-stop(0.75, rgba(255, 255, 255, 0.15)), color-stop(0.75, transparent), to(transparent));
     background-image: -webkit-linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
     background-image: -moz-linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
     background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
     background-size: 50px 50px;
-
-    border: 1px solid #777;
-
-    border-bottom: none;
-
-    bottom: 0;
-
-    height: 15px;
-
-    left: 0;
-
-    position: absolute;
-
-    width: 100%;
-
-    z-index: 4;
 }
-
-.b-timeline__timeframe .b-timeline__loading
-{
-    display: none;
-}
-
-.b-timeline__timeframe_loading .b-timeline__loading
-{
-    display: block;
-}
-
 
 @-webkit-keyframes progress-bar-stripes {
     from { background-position: 50px 0; }
@@ -156,8 +124,8 @@
 
     bottom: -1000px;
 
-    opacity: .6;
-    -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=60)";
+    opacity: .5;
+    -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=50)";
 
     position: absolute;
 

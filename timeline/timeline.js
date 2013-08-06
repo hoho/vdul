@@ -259,7 +259,7 @@
             pos = self._getTimeframeByTime(isUndefined(self._position) ? evaluatedBounds.minTime : self._position);
 
             timeFrom = self._getTimeByTimeframe(Math.floor(pos - evaluatedBounds.preloadBefore));
-            timeTo = self._getTimeByTimeframe(Math.ceil(pos + evaluatedBounds.curViewport + evaluatedBounds.preloadAfter));
+                timeTo = self._getTimeByTimeframe(Math.ceil(pos + evaluatedBounds.curViewport + evaluatedBounds.preloadAfter + 1));
 
             if (timeFrom < evaluatedBounds.minTime) {
                 timeFrom = evaluatedBounds.minTime;
@@ -347,7 +347,6 @@
                                 .span()
                                     .text(function(index, item) { return item.label; })
                         .end(3)
-                        .div({'class': 'b-timeline__loading'}, true)
                         .div({'class': 'b-timeline__events-wrapper'})
                             .div({'class': 'b-timeline__events'})
                                 .act(function() { t.eventsElem = this; })
