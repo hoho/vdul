@@ -73,8 +73,8 @@
         });
 
         container.addEventListener('click', function(e) {
-            if ((e.toElement.className || '').indexOf('b-timeline__event-overlay') >= 0) {
-                var id = e.toElement.getAttribute('data-id');
+            if ((e.target.className || '').indexOf('b-timeline__event-overlay') >= 0) {
+                var id = e.target.getAttribute('data-id');
 
                 if (id) {
                     self._click(id);
