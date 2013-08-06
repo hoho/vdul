@@ -39,7 +39,7 @@
 
 .b-timeline__tick
 {
-    border-left: 1px solid #eee;
+    border-left: 1px solid #f3f3f3;
 
     bottom: 0;
 
@@ -75,8 +75,8 @@
 
     bottom: -1000px;
 
-    opacity: .65;
-    -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=65)";
+    opacity: .6;
+    -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=60)";
 
     position: absolute;
 
@@ -133,7 +133,8 @@
     padding: 2px 0 0 20px;
 }
 
-.b-timeline__event_type_unfinished:after
+.b-timeline__event_type_unfinished:after,
+.b-timeline__event_type_unfinished:before
 {
     border: 5px solid transparent;
 
@@ -145,5 +146,12 @@
 
     left: 100%;
 
+    margin-left: 3px;
+
     position: absolute;
+}
+
+.b-timeline__event_type_unfinished:after
+{
+    margin-left: 10px;
 }

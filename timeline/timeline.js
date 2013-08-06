@@ -18,6 +18,9 @@
             {left: '87.5%', label: '21:00'}
         ],
 
+        months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+
         css = function(elem, props) {
             var style = elem.style,
                 prop,
@@ -73,7 +76,7 @@
 
     T.EVENT_HEIGHT = 30;
     T.EVENT_HSPACING = 30;
-    T.EVENT_VSPACING = 10;
+    T.EVENT_VSPACING = 5;
     T.LETTER_WIDTH = 7.5;
 
 
@@ -136,7 +139,7 @@
                 };
 
                 if (event = this._events[newEvent.id]) {
-                    delete this._events[newEvent.id];
+                    this._removeEvent(newEvent.id, true);
 
                     newEvent.row = event.row; // We need to keep the row.
 
@@ -172,43 +175,13 @@
 
         remove: function(eventIds) {
             var i,
-                j,
-                id,
-                events,
-                event,
-                timeframe;
+                id;
 
             for (i = 0; i < eventIds.length; i++) {
                 id = eventIds[i];
 
-                if (event = this._events[id]) {
-                    // TODO: Optimize timeframe event lists scans.
-                    delete this._events[id];
-
-                    timeframe = this._timeframes[event.timeframe];
-
-                    events = timeframe.events;
-
-                    for (j = 0; j < events.length; j++) {
-                        if (events[j] === id) {
-                            events.splice(j, 1);
-                            break;
-                        }
-                    }
-
-                    if (isUndefined(event.end)) {
-                        events = timeframe.unfinished;
-
-                        for (j = 0; j < events.length; j++) {
-                            if (events[j] === id) {
-                                events.splice(j, 1);
-                                break;
-                            }
-                        }
-                    }
-
-                    timeframe.eventsElem.removeChild(event.elem1);
-                    timeframe.eventsElem.removeChild(event.elem2);
+                if (this._events[id]) {
+                    this._removeEvent(id);
                 }
             }
 
@@ -303,6 +276,10 @@
 
                 timeFrom = val.timeFrom;
                 timeTo = val.timeTo;
+
+                for (i = val.timeframeFrom; i < val.timeframeTo; i++) {
+                    this._timeframes[i].requested = true;
+                }
             } else {
                 self._positionTimeframes();
             }
@@ -333,7 +310,7 @@
 
         _addTimeframe: function(timeframe) {
             if (isUndefined(this._timeframes[timeframe])) {
-                var t = this._timeframes[timeframe] = {events: [], unfinished: []},
+                var t = this._timeframes[timeframe] = {events: {}, unfinished: {}},
                     timeFrom = this._getTimeByTimeframe(timeframe),
                     timeTo = this._getTimeByTimeframe(timeframe + 1);
 
@@ -356,17 +333,34 @@
 
         _removeTimeframe: function(timeframe, unadopted) {
             var t = this._timeframes[timeframe],
-                i,
-                event;
+                id;
 
             if (t) {
-                for (i = 0; i < t.events.length; i++) {
-                    unadopted.push(event = this._events[t.events[i]]);
+                for (id in t.events) {
+                    unadopted.push(this._events[id]);
                 }
 
                 this._timeframesElem.removeChild(t.elem);
 
                 delete this._timeframes[timeframe];
+            }
+        },
+
+        _removeEvent: function(id, keepInDOM) {
+            var event = this._events[id],
+                timeframe;
+
+            if (event) {
+                delete this._events[id];
+
+                timeframe = this._timeframes[event.timeframe];
+                delete timeframe.events[id];
+                delete timeframe.unfinished[id];
+
+                if (!keepInDOM) {
+                    timeframe.eventsElem.removeChild(event.elem1);
+                    timeframe.eventsElem.removeChild(event.elem2);
+                }
             }
         },
 
@@ -440,10 +434,12 @@
 
                     // Adding this event to timeframe's events and to
                     // Timeline._events.
-                    timeframe.events.push(event.id);
+                    timeframe.events[event.id] = true;
+
                     if (isUndefined(event.end)) {
-                        timeframe.unfinished.push(event.id);
+                        timeframe.unfinished[event.id] = true;
                     }
+
                     this._events[event.id] = event;
 
                     // Appending event's DOM nodes to timeframe's events
@@ -622,7 +618,7 @@
 
         _setUnfinishedEventsWidths: function() {
             var i,
-                j,
+                id,
                 unfinished,
                 timeframeWidth = this._getTimeframeWidth(),
                 now = this._bounds.now,
@@ -647,8 +643,8 @@
             for (i = this._timeframeFrom; i < this._timeframeTo; i++) {
                 unfinished = this._timeframes[i].unfinished;
 
-                for (j = 0; j < unfinished.length; j++) {
-                    event = this._events[unfinished[j]];
+                for (id in unfinished) {
+                    event = this._events[id];
                     css(event.elem1, {width: width - event.left});
                     css(event.elem2, {width: width - event.left});
                 }
@@ -658,21 +654,25 @@
         },
 
         _getMissingTime: function() {
-            var timeframeFrom, timeframeTo;
+            var timeframeFrom,
+                timeframeTo,
+                i;
 
             timeframeFrom = this._timeframeFrom;
             timeframeTo = this._timeframeTo - 1;
 
-            while (timeframeFrom < this._timeframeTo && this._timeframes[timeframeFrom].data) {
+            while (timeframeFrom < this._timeframeTo && this._timeframes[timeframeFrom].requested) {
                 timeframeFrom++;
             }
 
-            while (timeframeTo >= this._timeframeFrom && this._timeframes[timeframeTo].data) {
+            while (timeframeTo >= this._timeframeFrom && this._timeframes[timeframeTo].requested) {
                 timeframeTo--;
             }
 
             if (timeframeFrom <= timeframeTo) {
                 return {
+                    timeframeFrom: timeframeFrom,
+                    timeframeTo: timeframeTo + 1,
                     timeFrom: this._getTimeByTimeframe(timeframeFrom),
                     timeTo: this._getTimeByTimeframe(timeframeTo + 1)
                 };
@@ -698,6 +698,8 @@
         },
 
         _getTicks: function(timeFrom, timeTo) {
+            var d = new Date(timeFrom);
+            defaultTicks[0].label = months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear();
             return defaultTicks;
         }
     };
