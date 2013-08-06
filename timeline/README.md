@@ -76,6 +76,8 @@ In every callback `this` is pointing to the current **Timeline** object.
 Add a set of events to current timeframes.
 
 	timeline.push(
+		timeFrom,
+		timeTo,
 		[
 			{
 				id:    string,

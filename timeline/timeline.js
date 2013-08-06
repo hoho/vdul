@@ -118,12 +118,15 @@
             }
         },
 
-        push: function(events) {
+        push: function(timeFrom, timeTo, events) {
             var i, j,
                 event,
                 newEvent,
                 unadopted = [],
-                clearMarks;
+                clearMarks,
+                timeframeFrom,
+                timeframeTo,
+                timeframe;
 
             for (i = 0; i < events.length; i++) {
                 event = events[i];
@@ -181,6 +184,17 @@
             }
 
             this._adoptEvents(unadopted);
+
+            timeframeFrom = this._getTimeframeByTime(timeFrom);
+            timeframeTo = this._getTimeframeByTime(timeTo);
+
+            for (i = timeframeFrom; i < timeframeTo; i++) {
+                if ((timeframe = this._timeframes[i]) && timeframe.loading) {
+                    timeframe.elem.className = 'b-timeline__timeframe';
+                    timeframe.loading = false;
+                }
+            }
+
             this._scheduleUpdate();
         },
 
@@ -321,18 +335,19 @@
 
         _addTimeframe: function(timeframe) {
             if (isUndefined(this._timeframes[timeframe])) {
-                var t = this._timeframes[timeframe] = {events: {}, unfinished: {}},
+                var t = this._timeframes[timeframe] = {events: {}, unfinished: {}, loading: true},
                     timeFrom = this._getTimeByTimeframe(timeframe),
                     timeTo = this._getTimeByTimeframe(timeframe + 1);
 
                 $C(this._timeframesElem)
-                    .div({'class': 'b-timeline__timeframe'})
+                    .div({'class': 'b-timeline__timeframe b-timeline__timeframe_loading'})
                         .act(function() { t.elem = this; })
                         .each(this._getTicks(timeFrom, timeTo))
                             .div({'class': 'b-timeline__tick', style: {left: function(index, item) { return item.left; }}})
                                 .span()
                                     .text(function(index, item) { return item.label; })
                         .end(3)
+                        .div({'class': 'b-timeline__loading'}, true)
                         .div({'class': 'b-timeline__events-wrapper'})
                             .div({'class': 'b-timeline__events'})
                                 .act(function() { t.eventsElem = this; })
@@ -344,11 +359,14 @@
 
         _removeTimeframe: function(timeframe, unadopted) {
             var t = this._timeframes[timeframe],
-                id;
+                id,
+                event;
 
             if (t) {
                 for (id in t.events) {
-                    unadopted.push(this._events[id]);
+                    event = this._events[id];
+                    event.timeframe = undefined;
+                    unadopted.push(event);
                 }
 
                 this._timeframesElem.removeChild(t.elem);
@@ -364,13 +382,16 @@
             if (event) {
                 delete this._events[id];
 
-                timeframe = this._timeframes[event.timeframe];
-                delete timeframe.events[id];
-                delete timeframe.unfinished[id];
+                if (event.timeframe) {
+                    timeframe = this._timeframes[event.timeframe];
 
-                if (!keepInDOM) {
-                    timeframe.eventsElem.removeChild(event.elem1);
-                    timeframe.eventsElem.removeChild(event.elem2);
+                    delete timeframe.events[id];
+                    delete timeframe.unfinished[id];
+
+                    if (!keepInDOM) {
+                        timeframe.eventsElem.removeChild(event.elem1);
+                        timeframe.eventsElem.removeChild(event.elem2);
+                    }
                 }
             }
         },
