@@ -32,6 +32,26 @@
                 //       width and so on).
                 style[prop] = val + (typeof val === 'number' ? 'px' : '');
             }
+        },
+
+        bemBlockName = 'b-timeline',
+
+        bemClass = function(elem, mods) {
+            // Concatenate block or element class attribute value.
+            if (typeof elem !== 'string') {
+                mods = elem;
+                elem = undefined;
+            }
+
+            var base = bemBlockName + (elem ? '__' + elem : ''),
+                ret = [base],
+                mod;
+
+            for (mod in mods) {
+                ret.push(base + '_' + mod + (mods[mod] === true ? '' : '_' + mods[mod]));
+            }
+
+            return ret.join(' ');
         };
 
     T = window.Timeline = function(container) {
@@ -54,9 +74,10 @@
         self._timeframes = {};
         self._events = {};
 
-        self._elem = $C(container, true)
-            .div({'class': 'b-timeline'})
-                .div({'class': 'b-timeline__timeframes'})
+        $C(container, true)
+            .div({'class': bemClass()})
+                .act(function() { self._elem = this; })
+                .div({'class': bemClass('timeframes')})
                     .act(function() { self._timeframesElem = this; })
         .end(3);
 
@@ -73,12 +94,28 @@
         });
 
         container.addEventListener('click', function(e) {
-            if ((e.target.className || '').indexOf('b-timeline__event-overlay') >= 0) {
-                var id = e.target.getAttribute('data-id');
+            var className = e.target.className || '',
+                what;
 
-                if (id) {
-                    self._click(id);
-                }
+            if (className.indexOf(bemClass('event-overlay')) >= 0) {
+                what = 'event';
+            } else if (className === bemClass('error')) {
+                what = 'error';
+            }
+
+            switch (what) {
+                case 'event':
+                    var id = e.target.getAttribute('data-id');
+
+                    if (id) {
+                        self._click(id);
+                    }
+
+                    break;
+
+                case 'error':
+                    self._update(true, true);
+                    break;
             }
         });
     };
@@ -123,10 +160,7 @@
                 event,
                 newEvent,
                 unadopted = [],
-                clearMarks,
-                timeframeFrom,
-                timeframeTo,
-                timeframe;
+                clearMarks;
 
             for (i = 0; i < events.length; i++) {
                 event = events[i];
@@ -142,13 +176,13 @@
                     end:        event.end,
                     marks:      Array.prototype.slice.call(event.marks || [], 0),
                     color:      event.color,
-                    row:        undefined,
-                    tbegin:     undefined,
-                    tend:       undefined,
-                    elem1:      undefined,
-                    elem2:      undefined,
-                    positioned: false,
-                    left:       undefined
+                    //row:        undefined,
+                    //tbegin:     undefined,
+                    //tend:       undefined,
+                    //elem1:      undefined,
+                    //elem2:      undefined,
+                    //left:       undefined,
+                    positioned: false
                 };
 
                 if (event = this._events[newEvent.id]) {
@@ -159,7 +193,7 @@
                     // Event's DOM nodes are already created, no need to create
                     // them again.
                     newEvent.elem1 = event.elem1;
-                    css(newEvent.elem1, {background: newEvent.color || ''});
+                    css(newEvent.elem1, {'background-color': newEvent.color || ''});
 
                     if (newEvent.marks.length === event.marks.length) {
                         for (j = 0; j < newEvent.marks.length; j++) {
@@ -185,19 +219,7 @@
 
             this._adoptEvents(unadopted);
 
-            timeframeFrom = this._getTimeframeByTime(timeFrom);
-            timeframeTo = this._getTimeframeByTime(timeTo);
-
-            for (i = timeframeFrom; i < timeframeTo; i++) {
-                if ((timeframe = this._timeframes[i]) && timeframe.loading) {
-                    (function(t) {
-                        window.setTimeout(function() {
-                            t.elem.className = 'b-timeline__timeframe';
-                        }, 100);
-                    })(timeframe);
-                    timeframe.loading = false;
-                }
-            }
+            this._setStatus(timeFrom, timeTo, false, false);
 
             this._scheduleUpdate();
         },
@@ -213,11 +235,24 @@
                     this._removeEvent(id);
                 }
             }
-
-            this._scheduleUpdate();
         },
 
-        error: function() {
+        error: function(timeFrom, timeTo, msg) {
+            var self = this;
+
+            if (!self._errorElem) {
+                $C(self._elem)
+                    .div({'class': bemClass('error-wrapper')})
+                        .act(function() { self._errorElem = this; })
+                        .span({'class': bemClass('error')})
+                            .text(msg)
+                .end(3);
+
+                console.log(self._elem);
+            }
+
+            self._setStatus(timeFrom, timeTo, false, true);
+
             this._scheduleUpdate();
         },
 
@@ -226,12 +261,16 @@
                 return this._position;
             } else {
                 this._position = pos;
-                this.update();
+                this._update();
                 this._scheduleUpdate();
             }
         },
 
-        update: function(updateCurrent) {
+        update: function() {
+            this._update();
+        },
+
+        _update: function(updateCurrent, setStatus) {
             var key,
                 self = this,
                 bounds = self.bounds,
@@ -306,14 +345,64 @@
                 timeFrom = val.timeFrom;
                 timeTo = val.timeTo;
 
-                for (i = val.timeframeFrom; i < val.timeframeTo; i++) {
-                    this._timeframes[i].requested = true;
-                }
+                self._setStatus(timeFrom, timeTo, true, false);
             } else {
                 self._positionTimeframes();
+
+                if (setStatus) {
+                    self._setStatus(timeFrom, timeTo, true, false);
+                }
             }
 
             self._getEvents(timeFrom, timeTo);
+        },
+
+        _setStatus: function(timeFrom, timeTo, loading, error) {
+            var timeframeFrom = this._getTimeframeByTime(timeFrom),
+                timeframeTo = this._getTimeframeByTime(timeTo),
+                timeframe,
+                i;
+
+            for (i = timeframeFrom; i < timeframeTo; i++) {
+                if (timeframe = this._timeframes[i]) {
+                    if (!loading || error) {
+                        if (timeframe.loading) {
+                            (function(elem) {
+                                window.setTimeout(function() {
+                                    elem.className = bemClass('timeframe');
+                                }, 100);
+                            })(timeframe.elem);
+
+                            timeframe.loading = false;
+                        }
+
+                        if (error) {
+                            timeframe.error = true;
+                        }
+                    }
+
+                    if (loading) {
+                        timeframe.elem.className = bemClass('timeframe', {loading: true});
+                        timeframe.loading = true;
+                    }
+
+                    if (!error) {
+                        timeframe.error = false;
+                    }
+                }
+            }
+
+            if (!error && this._errorElem) {
+                for (i = this._timeframeFrom; i < this._timeframeTo; i++) {
+                    if (this._timeframes[i].error) {
+                        return;
+                    }
+                }
+
+                // No failed timeframes, remove error message.
+                this._elem.removeChild(this._errorElem);
+                this._errorElem = undefined;
+            }
         },
 
         _scheduleUpdate: function() {
@@ -325,7 +414,7 @@
             if (self._bounds && (autoUpdate = self._bounds.autoUpdate) && autoUpdate > 0) {
                 self._timer = window.setTimeout(function() {
                     self._timer = null;
-                    self.update(true);
+                    self._update(true);
                 }, autoUpdate);
             }
         },
@@ -339,22 +428,26 @@
 
         _addTimeframe: function(timeframe) {
             if (isUndefined(this._timeframes[timeframe])) {
-                var t = this._timeframes[timeframe] = {events: {}, unfinished: {}, loading: true},
+                var t = this._timeframes[timeframe] = {
+                        events:     {},
+                        unfinished: {},
+                        loading:    undefined
+                    },
                     timeFrom = this._getTimeByTimeframe(timeframe),
                     timeTo = this._getTimeByTimeframe(timeframe + 1);
 
                 $C(this._timeframesElem)
-                    .div({'class': 'b-timeline__timeframe b-timeline__timeframe_loading'})
+                    .div({'class': bemClass('timeframe')})
                         .act(function() { t.elem = this; })
                         .each(this._getTicks(timeFrom, timeTo))
-                            .div({'class': 'b-timeline__tick', style: {left: function(index, item) { return item.left; }}})
+                            .div({'class': bemClass('tick'), style: {left: function(index, item) { return item.left; }}})
                                 .span()
                                     .text(function(index, item) { return item.label; })
                         .end(3)
-                        .div({'class': 'b-timeline__events-wrapper'})
-                            .div({'class': 'b-timeline__events'})
+                        .div({'class': bemClass('events-wrapper')})
+                            .div({'class': bemClass('events')})
                                 .act(function() { t.eventsElem = this; })
-                                .div({'class': 'b-timeline__future-overlay'})
+                                .div({'class': bemClass('future-overlay')})
                                     .act(function() { t.futureElem = this; })
                 .end(5);
             }
@@ -491,7 +584,7 @@
                     } else {
                         // Create new DOM nodes.
                         $C(tmp)
-                            .div(event.color ? {style: {background: event.color}} : undefined)
+                            .div(event.color ? {style: {'background-color': event.color}} : undefined)
                                 .act(function() { event.elem1 = this; })
                             .end()
                             .div({'data-id': event.id, title: event.title})
@@ -501,21 +594,19 @@
                     }
 
                     // Setting class names.
-                    event.elem1.className =
-                        'b-timeline__event' +
-                            (event.begin === event.end ?
-                                ' b-timeline__event_type_point'
-                                :
-                                isUndefined(event.end) ?
-                                    ' b-timeline__event_type_unfinished'
-                                    :
-                                    '');
-                    event.elem2.className =
-                        'b-timeline__event-overlay' +
-                            (event.begin === event.end ?
-                                ' b-timeline__event-overlay_type_point'
-                                :
-                                 '');
+                    tmp = undefined;
+
+                    if (event.begin === event.end) {
+                        tmp = {type: 'point'};
+                    }
+
+                    event.elem2.className = bemClass('event-overlay', tmp);
+
+                    if (isUndefined(event.end)) {
+                        tmp = {type: 'unfinished'}
+                    }
+
+                    event.elem1.className = bemClass('event', tmp);
 
                     // We need to position this event.
                     event.positioned = false;
@@ -696,11 +787,11 @@
             timeframeFrom = this._timeframeFrom;
             timeframeTo = this._timeframeTo - 1;
 
-            while (timeframeFrom < this._timeframeTo && this._timeframes[timeframeFrom].requested) {
+            while (timeframeFrom < this._timeframeTo && !isUndefined(this._timeframes[timeframeFrom].loading)) {
                 timeframeFrom++;
             }
 
-            while (timeframeTo >= this._timeframeFrom && this._timeframes[timeframeTo].requested) {
+            while (timeframeTo >= this._timeframeFrom && !isUndefined(this._timeframes[timeframeTo].loading)) {
                 timeframeTo--;
             }
 
