@@ -52,6 +52,46 @@
             }
 
             return ret.join(' ');
+        },
+
+        bindMouseWheel = function(elem, callback) {
+            var handler = function(event) {
+                var delta = 0;
+
+                if (!event) { event = window.event; }
+
+                // Old school scrollwheel delta
+                if (event.wheelDelta) { delta = event.wheelDelta * -1; }
+                if (event.detail) { delta = event.detail * -1; }
+
+                // New school wheel delta (wheel event)
+                if (event.deltaY && delta == 0) { delta = event.deltaY; }
+                if (event.deltaX && delta == 0) { delta  = event.deltaX; }
+
+                // Webkit
+                if (event.wheelDeltaY && delta == 0) { delta = event.wheelDeltaY; }
+                if (event.wheelDeltaX && delta == 0) { delta = event.wheelDeltaX; }
+
+                callback(delta);
+
+                if (event.preventDefault) {
+                    event.preventDefault();
+                }
+
+                return event.returnValue = false;
+            };
+
+            if (elem.addEventListener) {
+                var toBind = 'onwheel' in document || document.documentMode >= 9 ? ['wheel'] : ['mousewheel', 'DomMouseScroll', 'MozMousePixelScroll'],
+                    i;
+
+                for (i = 0; i < toBind.length; i++) {
+                    elem.addEventListener(toBind[i], handler, false);
+                }
+            } else {
+                elem.onmousewheel = handler;
+            }
+
         };
 
     T = window.Timeline = function(container) {
@@ -95,7 +135,8 @@
 
         container.addEventListener('click', function(e) {
             var className = e.target.className || '',
-                what;
+                what,
+                id;
 
             if (className.indexOf(bemClass('event-overlay')) >= 0) {
                 what = 'event';
@@ -105,7 +146,7 @@
 
             switch (what) {
                 case 'event':
-                    var id = e.target.getAttribute('data-id');
+                    id = e.target.getAttribute('data-id');
 
                     if (id) {
                         self._click(id);
@@ -118,14 +159,22 @@
                     break;
             }
         });
-    };
 
+        bindMouseWheel(self._elem, function(delta) {
+            var timeframe = self._getTimeframeByTime(self._position),
+                timeFrom = self._getTimeByTimeframe(timeframe),
+                timeTo = self._getTimeByTimeframe(timeframe + 1);
+
+            timeframe += (self._position - timeFrom) / (timeTo - timeFrom);
+
+            self.position(self._getTimeByTimeframe(timeframe + delta * .0005));
+        });
+    };
 
     T.EVENT_HEIGHT = 30;
     T.EVENT_HSPACING = 30;
     T.EVENT_VSPACING = 5;
     T.LETTER_WIDTH = 7.5;
-
 
     T.prototype = {
         setBounds: function(bounds) {
@@ -186,6 +235,14 @@
                 };
 
                 if (event = this._events[newEvent.id]) {
+                    if (event.title === newEvent.title &&
+                        event.begin === newEvent.begin &&
+                        event.end === newEvent.end &&
+                        event.color === newEvent.color)
+                    {
+                        continue;
+                    }
+
                     this._removeEvent(newEvent.id, true);
 
                     newEvent.row = event.row; // We need to keep the row.
@@ -247,8 +304,6 @@
                         .span({'class': bemClass('error')})
                             .text(msg)
                 .end(3);
-
-                console.log(self._elem);
             }
 
             self._setStatus(timeFrom, timeTo, false, true);
@@ -291,8 +346,8 @@
             // TODO: Check values.
             self._bounds = evaluatedBounds;
 
-            if (self._getTimeframeByTime(self._position) > (pos = self._getTimeframeByTime(evaluatedBounds.maxTime) - evaluatedBounds.curViewport)) {
-                self._position = self._getTimeByTimeframe(pos);
+            if (self._position > (pos = self._getTimeByTimeframe((self._getTimeframeByTime(evaluatedBounds.maxTime) - evaluatedBounds.curViewport)))) {
+                self._position = pos;
             }
 
             if (self._position < evaluatedBounds.minTime) {
@@ -345,13 +400,14 @@
                 timeFrom = val.timeFrom;
                 timeTo = val.timeTo;
 
-                self._setStatus(timeFrom, timeTo, true, false);
+                setStatus = true;
             } else {
                 self._positionTimeframes();
 
-                if (setStatus) {
-                    self._setStatus(timeFrom, timeTo, true, false);
-                }
+            }
+
+            if (setStatus) {
+                self._setStatus(timeFrom, timeTo, true, false);
             }
 
             self._getEvents(timeFrom, timeTo);
@@ -370,7 +426,7 @@
                             (function(elem) {
                                 window.setTimeout(function() {
                                     elem.className = bemClass('timeframe');
-                                }, 100);
+                                }, 0);
                             })(timeframe.elem);
 
                             timeframe.loading = false;
@@ -463,6 +519,8 @@
                     event = this._events[id];
                     event.timeframe = undefined;
                     unadopted.push(event);
+
+                    delete this._events[id];
                 }
 
                 this._timeframesElem.removeChild(t.elem);
@@ -698,7 +756,7 @@
                 event = item.event;
 
                 if (item.begin) {
-                    if (!force && event.positioned) {
+                    if (!force && event.positioned && !rows[event.row]) {
                         rows[event.row] = true;
                         continue;
                     }
