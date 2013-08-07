@@ -190,7 +190,11 @@
 
             for (i = timeframeFrom; i < timeframeTo; i++) {
                 if ((timeframe = this._timeframes[i]) && timeframe.loading) {
-                    timeframe.elem.className = 'b-timeline__timeframe';
+                    (function(t) {
+                        window.setTimeout(function() {
+                            t.elem.className = 'b-timeline__timeframe';
+                        }, 100);
+                    })(timeframe);
                     timeframe.loading = false;
                 }
             }
