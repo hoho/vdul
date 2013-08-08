@@ -88,7 +88,7 @@
                             minDelta = absDelta;
                         }
 
-                        callback(delta / minDelta);
+                        callback(delta / (minDelta || 1));
 
                         if (event.preventDefault) {
                             event.preventDefault();
