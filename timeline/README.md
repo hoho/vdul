@@ -12,9 +12,15 @@ We present a history as a set of timeframes. Event amount could be pretty large,
 
 To begin using **Timeline**:
 
-	var timeline = new Timeline(container);
+	var timeline = new Timeline(container, bindEventFunc);
 	
 `container` is a parent DOM node.
+
+`bindEventFunc` is a function to add DOM event handlers. If you use jQuery, this function looks like:
+
+	function(elem, event, handler) { 
+		$(elem).on(event, handler); 
+	}
 
 ---
 
@@ -116,7 +122,7 @@ Remove a set of events with certain identifiers.
 
 This method should be called on a failure of loading events for a certain time range.
 
-	timeline.error(timeFrom, timeTo);
+	timeline.error(timeFrom, timeTo, errorMessage);
 
 ---
 
@@ -126,11 +132,3 @@ Returns or sets current viewport position.
 
 	timeline.position();
 	timeline.position(new Date().getTime());
-
----
-
-###### .update()
-
-Call this method to force **Timeline** update.
-
-	timeline.update();

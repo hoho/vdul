@@ -37,7 +37,7 @@
                 val = props[prop];
                 // TODO: Add 'px' suffix to a certain properies only (left,
                 //       width and so on).
-                style[prop] = val + (typeof val === 'number' ? 'px' : '');
+                try { style[prop] = val + (typeof val === 'number' ? 'px' : ''); } catch(e) {};
             }
         },
         ///////////////////////////////////////////////////////////////////////
@@ -117,7 +117,7 @@
             };
         };
 
-    T = window.Timeline = function(container) {
+    T = window.Timeline = function(container, bindEventFunc) {
         var self = this,
 
             __resizeTimer,
@@ -821,7 +821,7 @@
         ///////////////////////// Public API continues ////////////////////////
         ///////////////////////////////////////////////////////////////////////
         self.getBounds = function() {
-            return __bounds;
+            return __calculatedBounds;
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////// Public API continues ////////////////////////
@@ -889,12 +889,6 @@
             }
         };
         ///////////////////////////////////////////////////////////////////////
-        ///////////////////////// Public API continues ////////////////////////
-        ///////////////////////////////////////////////////////////////////////
-        self.update = function() {
-            __update__();
-        };
-        ///////////////////////////////////////////////////////////////////////
         ////////////////////////// End of public API //////////////////////////
         ///////////////////////////////////////////////////////////////////////
 
@@ -905,7 +899,7 @@
                     .act(function() { __timeframesElem = this; })
         .end(3);
 
-        window.addEventListener('resize', function() {
+        bindEventFunc(window, 'resize', function() {
             if (__resizeTimer) {
                 window.clearTimeout(__resizeTimer);
             }
@@ -917,7 +911,7 @@
             }, 100);
         });
 
-        container.addEventListener('click', function(e) {
+        bindEventFunc(__elem, 'click', function(e) {
             var className = e.target.className || '',
                 what,
                 id;
@@ -933,7 +927,7 @@
                     id = e.target.getAttribute('data-id');
 
                     if (id && __click__) {
-                        __click__(id);
+                        __click__(e, id);
                     }
 
                     break;
@@ -944,8 +938,30 @@
             }
         });
 
+        bindEventFunc(window, 'keydown', function(e) {
+            if (__calculatedBounds) {
+                var move;
+
+                switch (e.which) {
+                    case 37:
+                        move = -1;
+                        break;
+
+                    case 39:
+                        move = 1;
+                        break;
+                }
+
+                if (move) {
+                    self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + move * __calculatedBounds.curViewport * 0.05));
+                }
+            }
+        });
+
         bindMouseWheel(__elem, function(delta) {
-            self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + delta * .002));
+            if (!isUndefined(__calculatedBounds)) {
+                self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + delta * .002));
+            }
         });
     };
 
