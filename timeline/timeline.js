@@ -1,10 +1,13 @@
-(function(window, undefined) {
+(function(window, document, undefined) {
     'use strict';
 
     var T,
-        emptyFunc = function() {},
         isUndefined = function(val) { return typeof val === 'undefined'; },
         isFunction = function(val) { return typeof val === 'function'; },
+
+        floor = Math.floor,
+        ceil = Math.ceil,
+        round = Math.round,
 
         _24hours = 86400000,
         defaultTicks = [
@@ -21,6 +24,10 @@
         months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
 
+        bemBlockName = 'b-timeline',
+
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
         css = function(elem, props) {
             var style = elem.style,
                 prop,
@@ -33,9 +40,8 @@
                 style[prop] = val + (typeof val === 'number' ? 'px' : '');
             }
         },
-
-        bemBlockName = 'b-timeline',
-
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
         bemClass = function(elem, mods) {
             // Concatenate block or element class attribute value.
             if (typeof elem !== 'string') {
@@ -53,33 +59,43 @@
 
             return ret.join(' ');
         },
-
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
         bindMouseWheel = function(elem, callback) {
-            var handler = function(event) {
-                var delta = 0;
+            var minDelta,
+                handler =
+                    function(event) {
+                        var delta = 0,
+                            absDelta;
 
-                if (!event) { event = window.event; }
+                        if (!event) { event = window.event; }
 
-                // Old school scrollwheel delta
-                if (event.wheelDelta) { delta = event.wheelDelta * -1; }
-                if (event.detail) { delta = event.detail * -1; }
+                        // Old school scrollwheel delta
+                        if (event.wheelDelta) { delta = event.wheelDelta * -1; }
+                        if (event.detail) { delta = event.detail; }
 
-                // New school wheel delta (wheel event)
-                if (event.deltaY && delta == 0) { delta = event.deltaY; }
-                if (event.deltaX && delta == 0) { delta  = event.deltaX; }
+                        // New school wheel delta (wheel event)
+                        if (event.deltaX && delta == 0) { delta  = event.deltaX; }
+                        if (event.deltaY && delta == 0) { delta = event.deltaY; }
 
-                // Webkit
-                if (event.wheelDeltaY && delta == 0) { delta = event.wheelDeltaY; }
-                if (event.wheelDeltaX && delta == 0) { delta = event.wheelDeltaX; }
+                        // Webkit
+                        if (event.wheelDeltaX && delta == 0) { delta = event.wheelDeltaX; }
+                        if (event.wheelDeltaY && delta == 0) { delta = event.wheelDeltaY; }
 
-                callback(delta);
+                        absDelta = Math.abs(delta);
 
-                if (event.preventDefault) {
-                    event.preventDefault();
-                }
+                        if (isUndefined(minDelta) || absDelta < minDelta) {
+                            minDelta = absDelta;
+                        }
 
-                return event.returnValue = false;
-            };
+                        callback(delta / minDelta);
+
+                        if (event.preventDefault) {
+                            event.preventDefault();
+                        }
+
+                        return event.returnValue = false;
+                    };
 
             if (elem.addEventListener) {
                 var toBind = 'onwheel' in document || document.documentMode >= 9 ? ['wheel'] : ['mousewheel', 'DomMouseScroll', 'MozMousePixelScroll'],
@@ -92,119 +108,627 @@
                 elem.onmousewheel = handler;
             }
 
+        },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        bind = function(self, func) {
+            return function() {
+                func.apply(self, arguments);
+            };
         };
 
     T = window.Timeline = function(container) {
         var self = this,
-            resizeTimer;
 
-        self.bounds = {
-            minTime:       0,
-            maxTime:       0,
-            minViewport:   1,
-            maxViewport:   1,
-            curViewport:   1,
-            position:      undefined,
-            now:           undefined,
-            preloadBefore: 1,
-            preloadAfter:  1,
-            autoUpdate:    false
-        };
+            __resizeTimer,
 
-        self._timeframes = {};
-        self._events = {};
+            __timeframes = {},
+            __events = {},
 
-        $C(container, true)
-            .div({'class': bemClass()})
-                .act(function() { self._elem = this; })
-                .div({'class': bemClass('timeframes')})
-                    .act(function() { self._timeframesElem = this; })
-        .end(3);
+            __elem,
+            __errorElem,
+            __timeframesElem,
 
-        window.addEventListener('resize', function() {
-            if (resizeTimer) {
-                window.clearTimeout(resizeTimer);
-            }
+            __timeframeFrom,
+            __timeframeTo,
 
-            resizeTimer = window.setTimeout(function() {
-                self._positionTimeframes();
-                self._positionEvents(true);
-                resizeTimer = null;
-            }, 100);
-        });
+            __autoUpdateTimer,
 
-        container.addEventListener('click', function(e) {
-            var className = e.target.className || '',
-                what,
-                id;
+            __calculatedBounds,
 
-            if (className.indexOf(bemClass('event-overlay')) >= 0) {
-                what = 'event';
-            } else if (className === bemClass('error')) {
-                what = 'error';
-            }
+            __position,
 
-            switch (what) {
-                case 'event':
-                    id = e.target.getAttribute('data-id');
+            __bounds = {
+                minTime:       0,
+                maxTime:       0,
+                minViewport:   1,
+                maxViewport:   1,
+                curViewport:   1,
+                position:      undefined,
+                now:           undefined,
+                preloadBefore: 1,
+                preloadAfter:  1,
+                autoUpdate:    false
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Begin of private API ////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __getEvents__,
+            __click__,
+        ///////////////////////////////////////////////////////////////////////
+        /////////////////////////// Private API continues /////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __getTimeByTimeframe__ = function(timeframe) {
+                return timeframe * _24hours + __calculatedBounds.minTime % _24hours;
+            },
+        ///////////////////////////////////////////////////////////////////////
+        /////////////////////////// Private API continues /////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __getTimeframeByTime__ = function(time) {
+                return (time - __calculatedBounds.minTime % _24hours) / _24hours;
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __getTicks__ = function(timeFrom, timeTo) {
+                var d = new Date(timeFrom);
+                defaultTicks[0].label = months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear();
+                return defaultTicks;
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __removeEvent__ = function(id, keepInDOM) {
+                var event = __events[id],
+                    timeframe;
 
-                    if (id) {
-                        self._click(id);
+                if (event) {
+                    delete __events[id];
+
+                    if (event.timeframe) {
+                        timeframe = __timeframes[event.timeframe];
+
+                        delete timeframe.events[id];
+                        delete timeframe.unfinished[id];
+
+                        if (!keepInDOM) {
+                            timeframe.eventsElem.removeChild(event.elem1);
+                            timeframe.eventsElem.removeChild(event.elem2);
+                        }
+                    }
+                }
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __setStatus__ = function(timeFrom, timeTo, loading, error) {
+                var timeframeFrom = floor(__getTimeframeByTime__(timeFrom)),
+                    timeframeTo = floor(__getTimeframeByTime__(timeTo)),
+                    timeframe,
+                    i;
+
+                for (i = timeframeFrom; i < timeframeTo; i++) {
+                    if (timeframe = __timeframes[i]) {
+                        if (!loading || error) {
+                            if (timeframe.loading) {
+                                (function(elem) {
+                                    window.setTimeout(function() {
+                                        elem.className = bemClass('timeframe');
+                                    }, 0);
+                                })(timeframe.elem);
+
+                                timeframe.loading = false;
+                            }
+
+                            if (error) {
+                                timeframe.error = true;
+                            }
+                        }
+
+                        if (loading) {
+                            timeframe.elem.className = bemClass('timeframe', {loading: true});
+                            timeframe.loading = true;
+                        }
+
+                        if (!error) {
+                            timeframe.error = false;
+                        }
+                    }
+                }
+
+                if (!error && __errorElem) {
+                    for (i = __timeframeFrom; i < __timeframeTo; i++) {
+                        if (__timeframes[i].error) {
+                            return;
+                        }
                     }
 
-                    break;
-
-                case 'error':
-                    self._update(true, true);
-                    break;
-            }
-        });
-
-        bindMouseWheel(self._elem, function(delta) {
-            var timeframe = self._getTimeframeByTime(self._position),
-                timeFrom = self._getTimeByTimeframe(timeframe),
-                timeTo = self._getTimeByTimeframe(timeframe + 1);
-
-            timeframe += (self._position - timeFrom) / (timeTo - timeFrom);
-
-            self.position(self._getTimeByTimeframe(timeframe + delta * .0005));
-        });
-    };
-
-    T.EVENT_HEIGHT = 30;
-    T.EVENT_HSPACING = 30;
-    T.EVENT_VSPACING = 5;
-    T.LETTER_WIDTH = 7.5;
-
-    T.prototype = {
-        setBounds: function(bounds) {
-            var cur = this.bounds,
-                b,
-                key;
-
-            for (key in cur) {
-                if (!isUndefined(b = bounds[key])) {
-                    cur[key] = b;
+                    // No failed timeframes, remove error message.
+                    __elem.removeChild(__errorElem);
+                    __errorElem = undefined;
                 }
-            }
-        },
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __update__ = function(updateCurrent, setStatus) {
+                var key,
+                    val,
+                    pos,
+                    timeFrom,
+                    timeTo,
+                    timeframeFrom,
+                    timeframeTo,
+                    i,
+                    unadopted = [];
 
-        setCallbacks: function(callbacks) {
-            var names = ['getEvents', 'getTimeByTimeframe',
-                         'getTimeframeByTime', 'getTicks',
-                         'click'],
-                i,
-                name,
-                func;
+                __calculatedBounds = {};
 
-            for (i = 0; i < names.length; i++) {
-                if (isFunction(func = callbacks[name = names[i]])) {
-                    this['_' + name] = func;
+                for (key in __bounds) {
+                    // TODO: Check values.
+                    __calculatedBounds[key] = isFunction(val = __bounds[key]) ? val() : val;
                 }
-            }
-        },
 
-        push: function(timeFrom, timeTo, events) {
+                if (__position > (pos = __getTimeByTimeframe__((__getTimeframeByTime__(__calculatedBounds.maxTime) - __calculatedBounds.curViewport)))) {
+                    __position = pos;
+                }
+
+                if (__position < __calculatedBounds.minTime) {
+                    __position = __calculatedBounds.minTime;
+                }
+
+                pos = __getTimeframeByTime__(isUndefined(__position) ? __calculatedBounds.minTime : __position);
+
+                timeFrom = __getTimeByTimeframe__(floor(pos - __calculatedBounds.preloadBefore));
+                timeTo = __getTimeByTimeframe__(ceil(pos + __calculatedBounds.curViewport + __calculatedBounds.preloadAfter));
+
+                if (timeFrom < __calculatedBounds.minTime) {
+                    timeFrom = __calculatedBounds.minTime;
+                }
+
+                if (timeTo > __calculatedBounds.maxTime) {
+                    timeTo = __calculatedBounds.maxTime;
+                }
+
+                __cancelUpdate__();
+
+                if (!updateCurrent) {
+                    timeframeFrom = floor(__getTimeframeByTime__(timeFrom));
+                    timeframeTo = floor(__getTimeframeByTime__(timeTo));
+
+                    for (i = timeframeFrom; i < timeframeTo; i++) {
+                        __addTimeframe__(i);
+                    }
+
+                    if (!isUndefined(__timeframeFrom)) {
+                        for (i = __timeframeFrom; i < timeframeFrom; i++) {
+                            __removeTimeframe__(i, unadopted);
+                        }
+
+                        for (i = timeframeTo; i < __timeframeTo; i++) {
+                            __removeTimeframe__(i, unadopted);
+                        }
+                    }
+
+                    __timeframeFrom = timeframeFrom;
+                    __timeframeTo = timeframeTo;
+
+                    __positionTimeframes__();
+                    __adoptEvents__(unadopted);
+
+                    if (!(val = __getMissingTime__())) {
+                        return;
+                    }
+
+                    timeFrom = val.timeFrom;
+                    timeTo = val.timeTo;
+
+                    setStatus = true;
+                } else {
+                    __positionTimeframes__();
+
+                }
+
+                if (setStatus) {
+                    __setStatus__(timeFrom, timeTo, true, false);
+                }
+
+                if (__getEvents__) {
+                    __getEvents__(timeFrom, timeTo);
+                }
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __cancelUpdate__ = function() {
+                if (__autoUpdateTimer) {
+                    window.clearTimeout(__autoUpdateTimer);
+                    __autoUpdateTimer = null;
+                }
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __scheduleUpdate__ = function() {
+                var autoUpdate;
+
+                __cancelUpdate__();
+
+                if (__calculatedBounds && (autoUpdate = __calculatedBounds.autoUpdate) && autoUpdate > 0) {
+                    __autoUpdateTimer = window.setTimeout(function() {
+                        __autoUpdateTimer = null;
+                        __update__(true);
+                    }, autoUpdate);
+                }
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __addTimeframe__ = function(timeframe) {
+                if (isUndefined(__timeframes[timeframe])) {
+                    var t = __timeframes[timeframe] = {
+                            events:     {},
+                            unfinished: {},
+                            loading:    undefined
+                        },
+
+                        timeFrom = __getTimeByTimeframe__(timeframe),
+                        timeTo   = __getTimeByTimeframe__(timeframe + 1);
+
+                    $C(__timeframesElem)
+                        .div({'class': bemClass('timeframe')})
+                            .act(function() { t.elem = this; })
+                            .each(__getTicks__(timeFrom, timeTo))
+                                .div({'class': bemClass('tick'), style: {left: function(index, item) { return item.left; }}})
+                                    .span()
+                                        .text(function(index, item) { return item.label; })
+                            .end(3)
+                            .div({'class': bemClass('events-wrapper')})
+                                .div({'class': bemClass('events')})
+                                    .act(function() { t.eventsElem = this; })
+                                    .div({'class': bemClass('future-overlay')})
+                                        .act(function() { t.futureElem = this; })
+                    .end(5);
+                }
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __removeTimeframe__ = function(timeframe, unadopted) {
+                var t = __timeframes[timeframe],
+                    id,
+                    event;
+
+                if (t) {
+                    for (id in t.events) {
+                        event = __events[id];
+                        event.timeframe = undefined;
+                        unadopted.push(event);
+
+                        delete __events[id];
+                    }
+
+                    __timeframesElem.removeChild(t.elem);
+
+                    delete __timeframes[timeframe];
+                }
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __getTimeframeWidth__ = function() {
+                return ceil(__timeframesElem.clientWidth * (1 / __calculatedBounds.curViewport));
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __adoptEvents__ = function(events) {
+                if (events.length) {
+                    var i,
+                        tmp,
+                        event,
+                        timeframeFrom,
+                        timeframeTo,
+                        timeframeWidth = __getTimeframeWidth__(),
+                        timeframe,
+                        hspacing = T.EVENT_HSPACING / timeframeWidth,
+                        letterWidth = T.LETTER_WIDTH / timeframeWidth;
+
+                    for (i = 0; i < events.length; i++) {
+                        event = events[i];
+
+                        // Get timeframes this event goes through.
+                        timeframeFrom = __getTimeframeByTime__(event.begin);
+                        timeframeTo = event.begin === event.end ?
+                            timeframeFrom
+                            :
+                            __getTimeframeByTime__(isUndefined(event.end) ? __calculatedBounds.maxTime : event.end);
+
+                        if (timeframeTo < __timeframeFrom || timeframeFrom >= __timeframeTo) {
+                            // Event is out of current timeframes, skip it.
+                            continue;
+                        }
+
+                        // Getting event's parent timeframe.
+                        tmp = round((timeframeFrom + timeframeTo) / 2);
+                        event.timeframe = timeframe = tmp < __timeframeFrom ?
+                            __timeframeFrom
+                            :
+                            tmp >= __timeframeTo ?
+                                __timeframeTo - 1
+                                :
+                                tmp;
+
+                        timeframe = __timeframes[timeframe];
+
+                        // Getting event's left position in timeframes.
+                        event.tbegin = timeframeFrom;
+
+                        if (!isUndefined(event.end)) {
+                            // Getting event's right position.
+                            if (event.begin === event.end) {
+                                // It's a point event.
+                                event.tend = event.tbegin;
+                                event.tend2 = event.tbegin + event.title.length * letterWidth + hspacing;
+                            } else {
+                                // It's an interval.
+                                event.tend = timeframeTo;
+                                event.tend2 = event.tbegin + event.title.length * letterWidth + hspacing;
+
+                                if (event.tend2 - event.tend < hspacing) {
+                                    event.tend2 = event.tend + hspacing;
+                                }
+                            }
+                        }
+
+                        // Adding this event to timeframe's events and to
+                        // __events.
+                        timeframe.events[event.id] = true;
+
+                        if (isUndefined(event.end)) {
+                            timeframe.unfinished[event.id] = true;
+                        }
+
+                        __events[event.id] = event;
+
+                        // Appending event's DOM nodes to timeframe's events
+                        // container.
+                        tmp = timeframe.eventsElem;
+
+                        if (event.elem1) {
+                            // DOM nodes are already created.
+                            tmp.appendChild(event.elem1);
+                            tmp.appendChild(event.elem2);
+
+                            // Just rewrite event's title.
+                            $C(event.elem2, true).text(event.title).end();
+                        } else {
+                            // Create new DOM nodes.
+                            $C(tmp)
+                                .div(event.color ? {style: {'background-color': event.color}} : undefined)
+                                    .act(function() { event.elem1 = this; })
+                                .end()
+                                .div({'data-id': event.id, title: event.title})
+                                    .act(function() { event.elem2 = this; })
+                                    .text(event.title)
+                            .end(2);
+                        }
+
+                        // Setting class names.
+                        tmp = undefined;
+
+                        if (event.begin === event.end) {
+                            tmp = {type: 'point'};
+                        }
+
+                        event.elem2.className = bemClass('event-overlay', tmp);
+
+                        if (isUndefined(event.end)) {
+                            tmp = {type: 'unfinished'}
+                        }
+
+                        event.elem1.className = bemClass('event', tmp);
+
+                        // We need to position this event.
+                        event.positioned = false;
+                    }
+
+                    __positionEvents__();
+                }
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __positionTimeframes__ = function() {
+                var timeframeWidth = __getTimeframeWidth__(),
+                    i,
+                    left = - round((__getTimeframeByTime__(__position) - __timeframeFrom) * timeframeWidth),
+                    timeframe,
+                    timeFrom,
+                    timeTo,
+                    now = __calculatedBounds.now,
+                    cssProps;
+
+                if (!isUndefined(now)) {
+                    timeFrom = __getTimeByTimeframe__(__timeframeFrom);
+                }
+
+                for (i = __timeframeFrom; i < __timeframeTo; i++) {
+                    // TODO: Assign left and width only in case they have changed
+                    //       since previous __positionTimeframes__() call.
+
+                    timeframe = __timeframes[i];
+
+                    css(timeframe.elem, {left: left, width: timeframeWidth});
+
+                    left += timeframeWidth;
+
+                    if (!isUndefined(now)) {
+                        // Update future overlays positions.
+                        timeTo = __getTimeByTimeframe__(i + 1);
+
+                        cssProps = {};
+
+                        if (now >= timeTo) {
+                            cssProps.display = 'none';
+                        } else {
+                            cssProps.display = '';
+                            cssProps.left = timeFrom >= now ?
+                                0
+                                :
+                                round(timeframeWidth * (now - timeFrom) / (timeTo - timeFrom));
+                        }
+
+                        css(timeframe.futureElem, cssProps);
+
+                        timeFrom = timeTo;
+                    }
+                }
+
+                __setUnfinishedEventsWidths__();
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __positionEvents__ = function(force) {
+                var i,
+                    j,
+                    event,
+                    item,
+                    sweepLine = [],
+                    timeframeWidth = __getTimeframeWidth__(),
+                    left,
+                    top,
+                    rows = {};
+
+                for (i in __events) {
+                    event = __events[i];
+
+                    sweepLine.push({begin: true, event: event, sort: event.tbegin});
+
+                    if (!isUndefined(event.end)) {
+                        sweepLine.push({begin: false, event: event, sort: event.tend2});
+                    }
+                }
+
+                sweepLine.sort(function(a, b) {
+                    return a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0;
+                });
+
+                for (i = 0; i < sweepLine.length; i++) {
+                    item = sweepLine[i];
+                    event = item.event;
+
+                    if (item.begin) {
+                        if (!force && event.positioned && !rows[event.row]) {
+                            rows[event.row] = true;
+                            continue;
+                        }
+
+                        left = round((event.tbegin - event.timeframe) * timeframeWidth);
+
+                        j = 0;
+
+                        while (rows[j]) {
+                            j++;
+                        }
+
+                        event.row = j;
+
+                        rows[event.row] = true;
+
+                        top = ceil(event.row / 2) * (T.EVENT_HEIGHT + T.EVENT_VSPACING) * (event.row % 2 === 0 ? 1 : -1);
+
+                        css(event.elem1, {
+                            left: left,
+                            top: top,
+                            width: event.begin === event.end ? '' : round((event.tend - event.tbegin) * timeframeWidth)
+                        });
+
+                        css(event.elem2, {
+                            left: left,
+                            top: top,
+                            width: round((event.tend2 - event.tbegin) * timeframeWidth)
+                        });
+
+                        event.left = left;
+
+                        event.positioned = true;
+                    } else {
+                        rows[event.row] = undefined;
+                    }
+                }
+
+                __setUnfinishedEventsWidths__();
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __setUnfinishedEventsWidths__ = function() {
+                var i,
+                    id,
+                    unfinished,
+                    timeframeWidth = __getTimeframeWidth__(),
+                    timeframeFrom,
+                    width,
+                    event;
+
+                timeframeFrom = __getTimeframeByTime__(__calculatedBounds.now);
+
+                if (timeframeFrom >= __timeframeTo) {
+                    timeframeFrom = __timeframeTo;
+                }
+
+                width = round((timeframeFrom - __timeframeFrom) * timeframeWidth);
+
+                for (i = __timeframeFrom; i < __timeframeTo; i++) {
+                    unfinished = __timeframes[i].unfinished;
+
+                    for (id in unfinished) {
+                        event = __events[id];
+                        css(event.elem1, {width: width - event.left});
+                        css(event.elem2, {width: width - event.left});
+                    }
+
+                    width -= timeframeWidth;
+                }
+            },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Private API continues ///////////////////////
+        ///////////////////////////////////////////////////////////////////////
+            __getMissingTime__ = function() {
+                var timeframeFrom,
+                    timeframeTo;
+
+                timeframeFrom = __timeframeFrom;
+                timeframeTo = __timeframeTo - 1;
+
+                while (timeframeFrom < __timeframeTo && !isUndefined(__timeframes[timeframeFrom].loading)) {
+                    timeframeFrom++;
+                }
+
+                while (timeframeTo >= __timeframeFrom && !isUndefined(__timeframes[timeframeTo].loading)) {
+                    timeframeTo--;
+                }
+
+                if (timeframeFrom <= timeframeTo) {
+                    return {
+                        timeframeFrom: timeframeFrom,
+                        timeframeTo:   timeframeTo + 1,
+                        timeFrom:      __getTimeByTimeframe__(timeframeFrom),
+                        timeTo:        __getTimeByTimeframe__(timeframeTo + 1)
+                    };
+                }
+            };
+        ///////////////////////////////////////////////////////////////////////
+        ////////////////////////// End of private API /////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+
+
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Begin of public API /////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        self.push = function(timeFrom, timeTo, events) {
             var i, j,
                 event,
                 newEvent,
@@ -234,7 +758,7 @@
                     positioned: false
                 };
 
-                if (event = this._events[newEvent.id]) {
+                if (event = __events[newEvent.id]) {
                     if (event.title === newEvent.title &&
                         event.begin === newEvent.begin &&
                         event.end === newEvent.end &&
@@ -243,7 +767,7 @@
                         continue;
                     }
 
-                    this._removeEvent(newEvent.id, true);
+                    __removeEvent__(newEvent.id, true);
 
                     newEvent.row = event.row; // We need to keep the row.
 
@@ -274,617 +798,159 @@
                 unadopted.push(newEvent);
             }
 
-            this._adoptEvents(unadopted);
+            __adoptEvents__(unadopted);
 
-            this._setStatus(timeFrom, timeTo, false, false);
+            __setStatus__(timeFrom, timeTo, false, false);
 
-            this._scheduleUpdate();
-        },
+            __scheduleUpdate__();
+        };
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Public API continues ////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        self.setBounds = function(bounds) {
+            var key,
+                b;
 
-        remove: function(eventIds) {
+            for (key in __bounds) {
+                if (!isUndefined(b = bounds[key])) {
+                    __bounds[key] = b;
+                }
+            }
+        };
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Public API continues ////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        self.getBounds = function() {
+            return __bounds;
+        };
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Public API continues ////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        self.setCallbacks = function(callbacks) {
+            var key,
+                func;
+
+            for (key in callbacks) {
+                if (isFunction(func = callbacks[key])) {
+                    func = bind(self, func);
+
+                    switch (key) {
+                        case 'getEvents':          __getEvents__          = func; break;
+                        case 'getTimeByTimeframe': __getTimeByTimeframe__ = func; break;
+                        case 'getTimeframeByTime': __getTimeframeByTime__ = func; break;
+                        case 'getTicks':           __getTicks__           = func; break;
+                        case 'click':              __click__              = func; break;
+                    }
+                }
+            }
+        };
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Public API continues ////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        self.remove = function(eventIds) {
             var i,
                 id;
 
             for (i = 0; i < eventIds.length; i++) {
                 id = eventIds[i];
 
-                if (this._events[id]) {
-                    this._removeEvent(id);
+                if (__events[id]) {
+                    __removeEvent__(id);
                 }
             }
-        },
-
-        error: function(timeFrom, timeTo, msg) {
-            var self = this;
-
-            if (!self._errorElem) {
-                $C(self._elem)
+        };
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Public API continues ////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        self.error = function(timeFrom, timeTo, msg) {
+            if (!__errorElem) {
+                $C(__elem)
                     .div({'class': bemClass('error-wrapper')})
-                        .act(function() { self._errorElem = this; })
+                        .act(function() { __errorElem = this; })
                         .span({'class': bemClass('error')})
                             .text(msg)
                 .end(3);
             }
 
-            self._setStatus(timeFrom, timeTo, false, true);
+            __setStatus__(timeFrom, timeTo, false, true);
 
-            this._scheduleUpdate();
-        },
-
-        position: function(pos) {
+            __scheduleUpdate__();
+        };
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Public API continues ////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        self.position = function(pos) {
             if (isUndefined(pos)) {
-                return this._position;
+                return __position;
             } else {
-                this._position = pos;
-                this._update();
-                this._scheduleUpdate();
+                __position = pos;
+                __update__();
+                __scheduleUpdate__();
             }
-        },
+        };
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////// Public API continues ////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        self.update = function() {
+            __update__();
+        };
+        ///////////////////////////////////////////////////////////////////////
+        ////////////////////////// End of public API //////////////////////////
+        ///////////////////////////////////////////////////////////////////////
 
-        update: function() {
-            this._update();
-        },
+        $C(container, true)
+            .div({'class': bemClass()})
+                .act(function() { __elem = this; })
+                .div({'class': bemClass('timeframes')})
+                    .act(function() { __timeframesElem = this; })
+        .end(3);
 
-        _update: function(updateCurrent, setStatus) {
-            var key,
-                self = this,
-                bounds = self.bounds,
-                val,
-                evaluatedBounds = {},
-                pos,
-                timeFrom,
-                timeTo,
-                timeframeFrom,
-                timeframeTo,
-                i,
-                unadopted = [];
-
-            for (key in bounds) {
-                evaluatedBounds[key] = isFunction(val = bounds[key]) ? val() : val;
-            }
-
-            // TODO: Check values.
-            self._bounds = evaluatedBounds;
-
-            if (self._position > (pos = self._getTimeByTimeframe((self._getTimeframeByTime(evaluatedBounds.maxTime) - evaluatedBounds.curViewport)))) {
-                self._position = pos;
+        window.addEventListener('resize', function() {
+            if (__resizeTimer) {
+                window.clearTimeout(__resizeTimer);
             }
 
-            if (self._position < evaluatedBounds.minTime) {
-                self._position = evaluatedBounds.minTime;
+            __resizeTimer = window.setTimeout(function() {
+                __positionTimeframes__();
+                __positionEvents__(true);
+                __resizeTimer = null;
+            }, 100);
+        });
+
+        container.addEventListener('click', function(e) {
+            var className = e.target.className || '',
+                what,
+                id;
+
+            if (className.indexOf(bemClass('event-overlay')) >= 0) {
+                what = 'event';
+            } else if (className === bemClass('error')) {
+                what = 'error';
             }
 
-            pos = self._getTimeframeByTime(isUndefined(self._position) ? evaluatedBounds.minTime : self._position);
+            switch (what) {
+                case 'event':
+                    id = e.target.getAttribute('data-id');
 
-            timeFrom = self._getTimeByTimeframe(Math.floor(pos - evaluatedBounds.preloadBefore));
-                timeTo = self._getTimeByTimeframe(Math.ceil(pos + evaluatedBounds.curViewport + evaluatedBounds.preloadAfter + 1));
-
-            if (timeFrom < evaluatedBounds.minTime) {
-                timeFrom = evaluatedBounds.minTime;
-            }
-
-            if (timeTo > evaluatedBounds.maxTime) {
-                timeTo = evaluatedBounds.maxTime;
-            }
-
-            self._cancelUpdate();
-
-            if (!updateCurrent) {
-                timeframeFrom = self._getTimeframeByTime(timeFrom);
-                timeframeTo = self._getTimeframeByTime(timeTo);
-
-                for (i = timeframeFrom; i < timeframeTo; i++) {
-                    self._addTimeframe(i);
-                }
-
-                if (!isUndefined(self._timeframeFrom)) {
-                    for (i = self._timeframeFrom; i < timeframeFrom; i++) {
-                        self._removeTimeframe(i, unadopted);
+                    if (id && __click__) {
+                        __click__(id);
                     }
 
-                    for (i = timeframeTo; i < self._timeframeTo; i++) {
-                        self._removeTimeframe(i, unadopted);
-                    }
-                }
+                    break;
 
-                self._timeframeFrom = timeframeFrom;
-                self._timeframeTo = timeframeTo;
-
-                self._positionTimeframes();
-                self._adoptEvents(unadopted);
-
-                if (!(val = self._getMissingTime())) {
-                    return;
-                }
-
-                timeFrom = val.timeFrom;
-                timeTo = val.timeTo;
-
-                setStatus = true;
-            } else {
-                self._positionTimeframes();
-
+                case 'error':
+                    __update__(true, true);
+                    break;
             }
-
-            if (setStatus) {
-                self._setStatus(timeFrom, timeTo, true, false);
-            }
-
-            self._getEvents(timeFrom, timeTo);
-        },
-
-        _setStatus: function(timeFrom, timeTo, loading, error) {
-            var timeframeFrom = this._getTimeframeByTime(timeFrom),
-                timeframeTo = this._getTimeframeByTime(timeTo),
-                timeframe,
-                i;
-
-            for (i = timeframeFrom; i < timeframeTo; i++) {
-                if (timeframe = this._timeframes[i]) {
-                    if (!loading || error) {
-                        if (timeframe.loading) {
-                            (function(elem) {
-                                window.setTimeout(function() {
-                                    elem.className = bemClass('timeframe');
-                                }, 0);
-                            })(timeframe.elem);
-
-                            timeframe.loading = false;
-                        }
-
-                        if (error) {
-                            timeframe.error = true;
-                        }
-                    }
-
-                    if (loading) {
-                        timeframe.elem.className = bemClass('timeframe', {loading: true});
-                        timeframe.loading = true;
-                    }
-
-                    if (!error) {
-                        timeframe.error = false;
-                    }
-                }
-            }
-
-            if (!error && this._errorElem) {
-                for (i = this._timeframeFrom; i < this._timeframeTo; i++) {
-                    if (this._timeframes[i].error) {
-                        return;
-                    }
-                }
-
-                // No failed timeframes, remove error message.
-                this._elem.removeChild(this._errorElem);
-                this._errorElem = undefined;
-            }
-        },
-
-        _scheduleUpdate: function() {
-            var self = this,
-                autoUpdate;
-
-            self._cancelUpdate();
-
-            if (self._bounds && (autoUpdate = self._bounds.autoUpdate) && autoUpdate > 0) {
-                self._timer = window.setTimeout(function() {
-                    self._timer = null;
-                    self._update(true);
-                }, autoUpdate);
-            }
-        },
-
-        _cancelUpdate: function() {
-            if (this._timer) {
-                window.clearTimeout(this._timer);
-                this._timer = null;
-            }
-        },
-
-        _addTimeframe: function(timeframe) {
-            if (isUndefined(this._timeframes[timeframe])) {
-                var t = this._timeframes[timeframe] = {
-                        events:     {},
-                        unfinished: {},
-                        loading:    undefined
-                    },
-                    timeFrom = this._getTimeByTimeframe(timeframe),
-                    timeTo = this._getTimeByTimeframe(timeframe + 1);
-
-                $C(this._timeframesElem)
-                    .div({'class': bemClass('timeframe')})
-                        .act(function() { t.elem = this; })
-                        .each(this._getTicks(timeFrom, timeTo))
-                            .div({'class': bemClass('tick'), style: {left: function(index, item) { return item.left; }}})
-                                .span()
-                                    .text(function(index, item) { return item.label; })
-                        .end(3)
-                        .div({'class': bemClass('events-wrapper')})
-                            .div({'class': bemClass('events')})
-                                .act(function() { t.eventsElem = this; })
-                                .div({'class': bemClass('future-overlay')})
-                                    .act(function() { t.futureElem = this; })
-                .end(5);
-            }
-        },
-
-        _removeTimeframe: function(timeframe, unadopted) {
-            var t = this._timeframes[timeframe],
-                id,
-                event;
-
-            if (t) {
-                for (id in t.events) {
-                    event = this._events[id];
-                    event.timeframe = undefined;
-                    unadopted.push(event);
-
-                    delete this._events[id];
-                }
-
-                this._timeframesElem.removeChild(t.elem);
-
-                delete this._timeframes[timeframe];
-            }
-        },
-
-        _removeEvent: function(id, keepInDOM) {
-            var event = this._events[id],
-                timeframe;
-
-            if (event) {
-                delete this._events[id];
-
-                if (event.timeframe) {
-                    timeframe = this._timeframes[event.timeframe];
-
-                    delete timeframe.events[id];
-                    delete timeframe.unfinished[id];
-
-                    if (!keepInDOM) {
-                        timeframe.eventsElem.removeChild(event.elem1);
-                        timeframe.eventsElem.removeChild(event.elem2);
-                    }
-                }
-            }
-        },
-
-        _getTimeframeWidth: function() {
-            return Math.ceil(this._timeframesElem.clientWidth * (1 / this._bounds.curViewport));
-        },
-
-        _adoptEvents: function(events) {
-            if (events.length) {
-                var i,
-                    tmp,
-                    event,
-                    timeFrom,
-                    timeTo,
-                    timeframeFrom,
-                    timeframeTo,
-                    timeframeWidth = this._getTimeframeWidth(),
-                    timeframe,
-                    hspacing = T.EVENT_HSPACING / timeframeWidth,
-                    letterWidth = T.LETTER_WIDTH / timeframeWidth;
-
-                for (i = 0; i < events.length; i++) {
-                    event = events[i];
-
-                    // Get timeframes this event goes through.
-                    timeframeFrom = this._getTimeframeByTime(event.begin);
-                    timeframeTo = event.begin === event.end ?
-                        timeframeFrom
-                        :
-                        this._getTimeframeByTime(isUndefined(event.end) ? this._bounds.maxTime : event.end);
-
-                    if (timeframeTo < this._timeframeFrom || timeframeFrom >= this._timeframeTo) {
-                        // Event is out of current timeframes, skip it.
-                        continue;
-                    }
-
-                    // Getting event's parent timeframe.
-                    tmp = Math.round((timeframeFrom + timeframeTo) / 2);
-                    event.timeframe = timeframe = tmp < this._timeframeFrom ?
-                        this._timeframeFrom
-                        :
-                        tmp >= this._timeframeTo ?
-                            this._timeframeTo - 1
-                            :
-                            tmp;
-                    timeframe = this._timeframes[timeframe];
-
-                    // Getting event's left position in timeframes.
-                    timeFrom = this._getTimeByTimeframe(timeframeFrom);
-                    timeTo = this._getTimeByTimeframe(timeframeFrom + 1);
-                    event.tbegin = timeframeFrom + (event.begin - timeFrom) / (timeTo - timeFrom);
-
-                    if (!isUndefined(event.end)) {
-                        // Getting event's right position.
-                        if (event.begin === event.end) {
-                            // It's a point event.
-                            event.tend = event.tbegin;
-                            event.tend2 = event.tbegin + event.title.length * letterWidth + hspacing;
-                        } else {
-                            // It's an interval.
-                            timeFrom = this._getTimeByTimeframe(timeframeTo);
-                            timeTo = this._getTimeByTimeframe(timeframeTo + 1);
-                            event.tend = timeframeTo + (event.end - timeFrom) / (timeTo - timeFrom);
-                            event.tend2 = event.tbegin + event.title.length * letterWidth + hspacing;
-
-                            if (event.tend2 - event.tend < hspacing) {
-                                event.tend2 = event.tend + hspacing;
-                            }
-                        }
-                    }
-
-                    // Adding this event to timeframe's events and to
-                    // Timeline._events.
-                    timeframe.events[event.id] = true;
-
-                    if (isUndefined(event.end)) {
-                        timeframe.unfinished[event.id] = true;
-                    }
-
-                    this._events[event.id] = event;
-
-                    // Appending event's DOM nodes to timeframe's events
-                    // container.
-                    tmp = timeframe.eventsElem;
-
-                    if (event.elem1) {
-                        // DOM nodes are already created.
-                        tmp.appendChild(event.elem1);
-                        tmp.appendChild(event.elem2);
-
-                        // Just rewrite event's title.
-                        $C(event.elem2, true).text(event.title).end();
-                    } else {
-                        // Create new DOM nodes.
-                        $C(tmp)
-                            .div(event.color ? {style: {'background-color': event.color}} : undefined)
-                                .act(function() { event.elem1 = this; })
-                            .end()
-                            .div({'data-id': event.id, title: event.title})
-                                .act(function() { event.elem2 = this; })
-                                .text(event.title)
-                        .end(2);
-                    }
-
-                    // Setting class names.
-                    tmp = undefined;
-
-                    if (event.begin === event.end) {
-                        tmp = {type: 'point'};
-                    }
-
-                    event.elem2.className = bemClass('event-overlay', tmp);
-
-                    if (isUndefined(event.end)) {
-                        tmp = {type: 'unfinished'}
-                    }
-
-                    event.elem1.className = bemClass('event', tmp);
-
-                    // We need to position this event.
-                    event.positioned = false;
-                }
-
-                this._positionEvents();
-            }
-        },
-
-        _positionTimeframes: function() {
-            var timeframeWidth = this._getTimeframeWidth(),
-                i,
-                pos = this._getTimeframeByTime(this._position),
-                posFrom = this._getTimeByTimeframe(pos),
-                posTo = this._getTimeByTimeframe(pos + 1),
-                left,
-                timeframe,
-                timeFrom,
-                timeTo,
-                now = this._bounds.now,
-                cssProps;
-
-            left =  - Math.round(timeframeWidth * (this._position - posFrom) / (posTo - posFrom))
-                    - (pos - this._timeframeFrom) * timeframeWidth;
-
-            if (!isUndefined(now)) {
-                timeFrom = this._getTimeByTimeframe(this._timeframeFrom);
-            }
-
-            for (i = this._timeframeFrom; i < this._timeframeTo; i++) {
-                // TODO: Assign left and width only in case they have changed
-                //       since previous _positionTimeframes() call.
-
-                timeframe = this._timeframes[i];
-
-                css(timeframe.elem, {left: left, width: timeframeWidth});
-
-                left += timeframeWidth;
-
-                if (!isUndefined(now)) {
-                    // Update future overlays positions.
-                    timeTo = this._getTimeByTimeframe(i + 1);
-
-                    cssProps = {};
-
-                    if (now >= timeTo) {
-                        cssProps.display = 'none';
-                    } else {
-                        cssProps.display = '';
-                        cssProps.left = timeFrom >= now ?
-                            0
-                            :
-                            Math.round(timeframeWidth * (now - timeFrom) / (timeTo - timeFrom));
-                    }
-
-                    css(timeframe.futureElem, cssProps);
-
-                    timeFrom = timeTo;
-                }
-            }
-
-            this._setUnfinishedEventsWidths();
-        },
-
-        _positionEvents: function(force) {
-            var i,
-                j,
-                event,
-                item,
-                sweepLine = [],
-                timeframeWidth = this._getTimeframeWidth(),
-                left,
-                top,
-                rows = {};
-
-            for (i in this._events) {
-                event = this._events[i];
-
-                sweepLine.push({begin: true, event: event, sort: event.tbegin});
-                sweepLine.push({begin: false, event: event, sort: isUndefined(event.end) ? '' : event.tend2});
-            }
-
-            sweepLine.sort(function(a, b) {
-                return a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0;
-            });
-
-            for (i = 0; i < sweepLine.length; i++) {
-                item = sweepLine[i];
-                event = item.event;
-
-                if (item.begin) {
-                    if (!force && event.positioned && !rows[event.row]) {
-                        rows[event.row] = true;
-                        continue;
-                    }
-
-                    left = Math.round((event.tbegin - event.timeframe) * timeframeWidth);
-
-                    if (isUndefined(event.row)) {
-                        j = 0;
-
-                        while (rows[j]) {
-                            j++;
-                        }
-
-                        event.row = j;
-                    }
-
-                    rows[event.row] = true;
-
-                    top = Math.ceil(event.row / 2) * (T.EVENT_HEIGHT + T.EVENT_VSPACING) * (event.row % 2 === 0 ? 1 : -1);
-
-                    css(event.elem1, {
-                        left: left,
-                        top: top,
-                        width: event.begin === event.end ? '' : Math.round((event.tend - event.tbegin) * timeframeWidth)
-                    });
-
-                    css(event.elem2, {
-                        left: left,
-                        top: top,
-                        width: Math.round((event.tend2 - event.tbegin) * timeframeWidth)
-                    });
-
-                    event.left = left;
-
-                    event.positioned = true;
-                } else {
-                    rows[event.row] = undefined;
-                }
-            }
-
-            this._setUnfinishedEventsWidths();
-        },
-
-        _setUnfinishedEventsWidths: function() {
-            var i,
-                id,
-                unfinished,
-                timeframeWidth = this._getTimeframeWidth(),
-                now = this._bounds.now,
-                timeframeFrom,
-                timeFrom,
-                timeTo,
-                width,
-                event;
-
-            timeframeFrom = this._getTimeframeByTime(now);
-
-            if (timeframeFrom >= this._timeframeTo) {
-                now = this._getTimeByTimeframe(this._timeframeTo);
-                timeframeFrom = this._timeframeTo;
-            }
-
-            timeFrom = this._getTimeByTimeframe(timeframeFrom);
-            timeTo = this._getTimeByTimeframe(timeframeFrom + 1);
-
-            width = Math.round((timeframeFrom - this._timeframeFrom + 1) * timeframeWidth - ((timeTo - now) / (timeTo - timeFrom)) * timeframeWidth);
-
-            for (i = this._timeframeFrom; i < this._timeframeTo; i++) {
-                unfinished = this._timeframes[i].unfinished;
-
-                for (id in unfinished) {
-                    event = this._events[id];
-                    css(event.elem1, {width: width - event.left});
-                    css(event.elem2, {width: width - event.left});
-                }
-
-                width -= timeframeWidth;
-            }
-        },
-
-        _getMissingTime: function() {
-            var timeframeFrom,
-                timeframeTo,
-                i;
-
-            timeframeFrom = this._timeframeFrom;
-            timeframeTo = this._timeframeTo - 1;
-
-            while (timeframeFrom < this._timeframeTo && !isUndefined(this._timeframes[timeframeFrom].loading)) {
-                timeframeFrom++;
-            }
-
-            while (timeframeTo >= this._timeframeFrom && !isUndefined(this._timeframes[timeframeTo].loading)) {
-                timeframeTo--;
-            }
-
-            if (timeframeFrom <= timeframeTo) {
-                return {
-                    timeframeFrom: timeframeFrom,
-                    timeframeTo: timeframeTo + 1,
-                    timeFrom: this._getTimeByTimeframe(timeframeFrom),
-                    timeTo: this._getTimeByTimeframe(timeframeTo + 1)
-                };
-            }
-        },
-
-        _getEvents: emptyFunc,
-
-        _click: emptyFunc,
-
-        _getTimeByTimeframe: function(timeframe) {
-            return this._bounds ?
-                timeframe * _24hours + this._bounds.minTime % _24hours
-                :
-                undefined;
-        },
-
-        _getTimeframeByTime: function(time) {
-            return this._bounds ?
-                Math.floor((time - this._bounds.minTime % _24hours) / _24hours)
-                :
-                undefined;
-        },
-
-        _getTicks: function(timeFrom, timeTo) {
-            var d = new Date(timeFrom);
-            defaultTicks[0].label = months[d.getMonth()] + ' ' + d.getDate() + ' ' + d.getFullYear();
-            return defaultTicks;
-        }
+        });
+
+        bindMouseWheel(__elem, function(delta) {
+            self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + delta * .002));
+        });
     };
-})(window);
+
+    T.EVENT_HEIGHT = 30;
+    T.EVENT_HSPACING = 30;
+    T.EVENT_VSPACING = 5;
+    T.LETTER_WIDTH = 7.5;
+})(window, document);
