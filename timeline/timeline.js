@@ -744,7 +744,7 @@
 
                 newEvent = {
                     id:         event.id,
-                    title:      event.title || '',
+                    title:      event.title ? event.title + '' : '',
                     begin:      isUndefined(event.begin) ? event.end : event.begin,
                     end:        event.end,
                     marks:      Array.prototype.slice.call(event.marks || [], 0),
@@ -960,7 +960,7 @@
 
         bindMouseWheel(__elem, function(delta) {
             if (!isUndefined(__calculatedBounds)) {
-                self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + delta * .002));
+                self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + __calculatedBounds.curViewport * delta * .002));
             }
         });
     };

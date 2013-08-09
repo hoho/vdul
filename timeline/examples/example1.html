@@ -1,0 +1,103 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <style>
+html,
+body
+{
+    height: 100%;
+}
+
+body
+{
+    margin: 0;
+
+    padding: 0;
+}
+    </style>
+    <link rel="stylesheet" type="text/css" href="../timeline.css">
+</head>
+<body>
+
+
+<script src="http://yandex.st/jquery/1.10.2/jquery.min.js"></script>
+<script src="https://raw.github.com/hoho/concat.js/master/concat.min.js"></script>
+<script src="https://raw.github.com/hoho/vdul/master/timeline/timeline.js"></script>
+
+<!--<script src="../timeline.js"></script>-->
+<!--<script src="../../../../concat.js/src/concat.min.js"></script>-->
+
+<script>
+
+function roundDate(date) {
+    var ret = new Date(date);
+
+    ret.setHours(0);
+    ret.setMinutes(0);
+    ret.setSeconds(0);
+    ret.setMilliseconds(0);
+
+    return ret;
+}
+
+var timeline = new Timeline(document.body, function(elem, event, handler) { $(elem).on(event, handler); }),
+    minTime = roundDate(new Date()),
+    maxTime = new Date(minTime);
+
+minTime.setDate(minTime.getDate() - 1000);
+maxTime.setDate(maxTime.getDate() + 1000);
+
+// Setting Timeline bounds.
+timeline.setBounds({
+    minTime: minTime.getTime(),
+    maxTime: maxTime.getTime(),
+    now: function() { return new Date().getTime() }
+    //autoUpdate: 5000
+});
+
+var idPrefix = 0,
+    colors = ['coral', 'darkseagreen', 'steelblue', 'orange'];
+
+// Setting callbacks.
+timeline.setCallbacks({
+    getEvents: function(timeFrom, timeTo) {
+        window.setTimeout(function() {
+            idPrefix++;
+
+            var events = [],
+                i,
+                begin,
+                end;
+
+            // Generate up to 100 random events.
+            for (i = 0; i < 100 * Math.random(); i++) {
+                begin = Math.floor((timeTo - timeFrom) * Math.random() + timeFrom);
+                end = Math.random() > 0.5 ? Math.floor((timeTo - begin) * Math.random() + begin) : begin;
+
+                events.push({
+                    id: idPrefix + '-' + i,
+                    title: Math.random(),
+                    begin: begin,
+                    end: end,
+                    color: colors[Math.round(Math.random() * (colors.length - 1))]
+                });
+            }
+
+            timeline.push(timeFrom, timeTo, events);
+
+        }, 200);
+    },
+
+    click: function(e, id) {
+        alert(id);
+    }
+});
+
+// Setting initial position to start working.
+timeline.position(new Date().getTime() - 3600000 * 12);
+
+</script>
+</body>
+</html>
