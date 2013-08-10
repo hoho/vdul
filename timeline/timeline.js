@@ -26,6 +26,8 @@
 
         bemBlockName = 'b-timeline',
 
+        mousedownX,
+
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
         css = function(elem, props) {
@@ -107,7 +109,6 @@
             } else {
                 elem.onmousewheel = handler;
             }
-
         },
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
@@ -118,6 +119,9 @@
         };
 
     T = window.Timeline = function(container, bindEventFunc) {
+        /* Naming: __something    is a private Timeline field,
+                   __something__  is a private Timeline method,
+                   something      is just a variable. */
         var self = this,
 
             __resizeTimer,
@@ -326,7 +330,6 @@
                     setStatus = true;
                 } else {
                     __positionTimeframes__();
-
                 }
 
                 if (setStatus) {
@@ -343,7 +346,7 @@
             __cancelUpdate__ = function() {
                 if (__autoUpdateTimer) {
                     window.clearTimeout(__autoUpdateTimer);
-                    __autoUpdateTimer = null;
+                    __autoUpdateTimer = undefined;
                 }
             },
         ///////////////////////////////////////////////////////////////////////
@@ -356,7 +359,7 @@
 
                 if (__calculatedBounds && (autoUpdate = __calculatedBounds.autoUpdate) && autoUpdate > 0) {
                     __autoUpdateTimer = window.setTimeout(function() {
-                        __autoUpdateTimer = null;
+                        __autoUpdateTimer = undefined;
                         __update__(true);
                     }, autoUpdate);
                 }
@@ -368,8 +371,7 @@
                 if (isUndefined(__timeframes[timeframe])) {
                     var t = __timeframes[timeframe] = {
                             events:     {},
-                            unfinished: {},
-                            loading:    undefined
+                            unfinished: {}
                         },
 
                         timeFrom = __getTimeByTimeframe__(timeframe),
@@ -461,7 +463,6 @@
 
                         timeframe = __timeframes[timeframe];
 
-                        // Getting event's left position in timeframes.
                         event.tbegin = timeframeFrom;
 
                         if (!isUndefined(event.end)) {
@@ -633,16 +634,14 @@
                             j++;
                         }
 
-                        event.row = j;
+                        rows[event.row = j] = true;
 
-                        rows[event.row] = true;
-
-                        top = ceil(event.row / 2) * (T.EVENT_HEIGHT + T.EVENT_VSPACING) * (event.row % 2 === 0 ? 1 : -1);
+                        top = ceil(j / 2) * (T.EVENT_HEIGHT + T.EVENT_VSPACING) * (j % 2 === 0 ? 1 : -1);
 
                         css(event.elem1, {
                             left: left,
                             top: top,
-                            width: event.begin === event.end ? '' : round((event.tend - event.tbegin) * timeframeWidth)
+                            width: event.begin === event.end ? '' : (round((event.tend - event.tbegin) * timeframeWidth) || 1)
                         });
 
                         css(event.elem2, {
@@ -651,6 +650,7 @@
                             width: round((event.tend2 - event.tbegin) * timeframeWidth)
                         });
 
+                        // Remember left position for __setUnfinishedEventsWidths__.
                         event.left = left;
 
                         event.positioned = true;
@@ -907,7 +907,7 @@
             __resizeTimer = window.setTimeout(function() {
                 __positionTimeframes__();
                 __positionEvents__(true);
-                __resizeTimer = null;
+                __resizeTimer = undefined;
             }, 100);
         });
 
@@ -956,6 +956,21 @@
                     self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + move * __calculatedBounds.curViewport * 0.05));
                 }
             }
+        });
+
+        bindEventFunc(__elem, 'mousedown', function(e) {
+            mousedownX = e.pageX;
+        });
+
+        bindEventFunc(__elem, 'mousemove', function(e) {
+            if (mousedownX !== undefined && __calculatedBounds && e.pageX !== mousedownX) {
+                self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + (mousedownX - e.pageX) * __calculatedBounds.curViewport / __getTimeframeWidth__()));
+                mousedownX = e.pageX;
+            }
+        });
+
+        bindEventFunc(document, 'mouseup', function(e) {
+            mousedownX = undefined;
         });
 
         bindMouseWheel(__elem, function(delta) {
