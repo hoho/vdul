@@ -953,7 +953,7 @@
                 }
 
                 if (move) {
-                    self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + move * __calculatedBounds.curViewport * 0.05));
+                    self.position(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + move * __calculatedBounds.curViewport * (e.shiftKey ? 0.4 : 0.05)));
                 }
             }
         });
