@@ -68,7 +68,7 @@ You can pass a function as a value of any key, this function will be called to r
 | Callback | Description | Signature | Return value |
 | -------- | ----------- |---------- | ------------ |
 | `getEvents` | called when **Timeline** needs to retrieve events for a certain timeframe range | `getEventsCallback(timeFrom, timeTo)` | Not expected |
-| `click`     | called when user has clicked on an event | `clickCallback(domEventObject, timelineEventId)` | Not expected |
+| `click`     | called when user has clicked on an event | `clickCallback(domEventObject, timelineEventId, markIndex)` | Not expected |
 | `getTimeByTimeframe` | get timestamp by timeframe number | `getTimeByTimeframeCallback(timeframe)` | integer |
 | `getTimeframeByTime` | get timeframe number for a timestamp | `getTimeframeByTimeCallback(time)` | integer |
 | `getTicks`  | called when **Timeline** wants to create time ticks for certain timeframe | `getTicksCallback(timeFrom, timeTo)` | array of ticks, for example `[{left: '0%', label: '00:00'}, {left: '12.5%', label: '03:00'}, …]` |
