@@ -96,7 +96,7 @@
                             event.preventDefault();
                         }
 
-                        return event.returnValue = false;
+                        return (event.returnValue = false);
                     };
 
             if (elem.addEventListener) {
@@ -123,6 +123,11 @@
                    __something__  is a private Timeline method,
                    something      is just a variable. */
         var self = this,
+
+            markAttributes = {
+                'class': bemClass('mark'),
+                'data-index': function(index) { return index; }
+            },
 
             __resizeTimer,
 
@@ -212,7 +217,7 @@
                     i;
 
                 for (i = timeframeFrom; i < timeframeTo; i++) {
-                    if (timeframe = __timeframes[i]) {
+                    if ((timeframe = __timeframes[i])) {
                         if (!loading || error) {
                             if (timeframe.loading) {
                                 (function(elem) {
@@ -500,9 +505,6 @@
                             // DOM nodes are already created.
                             tmp.appendChild(event.elem1);
                             tmp.appendChild(event.elem2);
-
-                            // Just rewrite event's title.
-                            $C(event.elem2, true).text(event.title).end();
                         } else {
                             // Create new DOM nodes.
                             $C(tmp)
@@ -511,6 +513,9 @@
                                 .end()
                                 .div({'data-id': event.id, title: event.title})
                                     .act(function() { event.elem2 = this; })
+                                    .each(event.marks)
+                                        .span(markAttributes)
+                                    .end(2)
                                     .text(event.title)
                             .end(2);
                         }
@@ -596,6 +601,9 @@
                     j,
                     event,
                     item,
+                    mark,
+                    markLeft,
+                    markPrevLeft,
                     sweepLine = [],
                     timeframeWidth = __getTimeframeWidth__(),
                     left,
@@ -626,8 +634,6 @@
                             continue;
                         }
 
-                        left = round((event.tbegin - event.timeframe) * timeframeWidth);
-
                         j = 0;
 
                         while (rows[j]) {
@@ -636,6 +642,7 @@
 
                         rows[event.row = j] = true;
 
+                        left = round((event.tbegin - event.timeframe) * timeframeWidth);
                         top = ceil(j / 2) * (T.EVENT_HEIGHT + T.EVENT_VSPACING) * (j % 2 === 0 ? 1 : -1);
 
                         css(event.elem1, {
@@ -643,6 +650,23 @@
                             top: top,
                             width: event.begin === event.end ? '' : (round((event.tend - event.tbegin) * timeframeWidth) || 1)
                         });
+
+                        j = 0;
+                        markPrevLeft = 0;
+                        mark = event.elem2.firstChild;
+
+                        while (j < event.marks.length) {
+                            markLeft = round((__getTimeframeByTime__(event.marks[j]) - event.timeframe) * timeframeWidth) - left;
+                            css(mark, {
+                                left: markPrevLeft,
+                                width: markLeft - markPrevLeft
+                            });
+
+                            markPrevLeft = markLeft;
+
+                            j++;
+                            mark = mark.nextSibling;
+                        }
 
                         css(event.elem2, {
                             left: left,
@@ -732,8 +756,7 @@
             var i, j,
                 event,
                 newEvent,
-                unadopted = [],
-                clearMarks;
+                unadopted = [];
 
             for (i = 0; i < events.length; i++) {
                 event = events[i];
@@ -758,11 +781,14 @@
                     positioned: false
                 };
 
-                if (event = __events[newEvent.id]) {
+                newEvent.marks.sort();
+
+                if ((event = __events[newEvent.id])) {
                     if (event.title === newEvent.title &&
                         event.begin === newEvent.begin &&
                         event.end === newEvent.end &&
-                        event.color === newEvent.color)
+                        event.color === newEvent.color &&
+                        event.marks.length === newEvent.marks.length)
                     {
                         continue;
                     }
@@ -776,20 +802,13 @@
                     newEvent.elem1 = event.elem1;
                     css(newEvent.elem1, {'background-color': newEvent.color || ''});
 
-                    if (newEvent.marks.length === event.marks.length) {
-                        for (j = 0; j < newEvent.marks.length; j++) {
-                            if (newEvent.marks[j] !== event.marks[j]) {
-                                clearMarks = true;
-                                break;
-                            }
-                        }
-                    } else {
-                        clearMarks = true;
-                    }
-
-                    if (clearMarks) {
-                        // Remove all the marks because they have changed.
-                        newEvent.elem1.innerHTML = '';
+                    if (event.title !== newEvent.title || newEvent.marks.length !== event.marks.length) {
+                        $C(newEvent.elem2, true)
+                            .each(newEvent.marks)
+                                .span(markAttributes)
+                            .end(2)
+                            .text(newEvent.title)
+                        .end();
                     }
 
                     newEvent.elem2 = event.elem2;
@@ -812,7 +831,7 @@
                 b;
 
             for (key in __bounds) {
-                if (!isUndefined(b = bounds[key])) {
+                if (!isUndefined((b = bounds[key]))) {
                     __bounds[key] = b;
                 }
             }
@@ -831,7 +850,7 @@
                 func;
 
             for (key in callbacks) {
-                if (isFunction(func = callbacks[key])) {
+                if (isFunction((func = callbacks[key]))) {
                     func = bind(self, func);
 
                     switch (key) {
@@ -912,22 +931,38 @@
         });
 
         bindEventFunc(__elem, 'click', function(e) {
-            var className = e.target.className || '',
+            var target = e.target,
+                className = target.className || '',
                 what,
-                id;
+                overlayElem,
+                id,
+                markIndex,
+                event;
 
             if (className.indexOf(bemClass('event-overlay')) >= 0) {
                 what = 'event';
+            } else if (className.indexOf(bemClass('mark')) >= 0) {
+                what = 'mark';
             } else if (className === bemClass('error')) {
                 what = 'error';
             }
 
             switch (what) {
+                case 'mark':
+                    overlayElem = target.parentNode;
+                    markIndex = target.getAttribute('data-index');
+
                 case 'event':
-                    id = e.target.getAttribute('data-id');
+                    id = (overlayElem || target).getAttribute('data-id');
 
                     if (id && __click__) {
-                        __click__(e, id);
+                        event = __events[id];
+
+                        if (what === 'event' && event.marks.length) {
+                            markIndex = event.marks.length;
+                        }
+
+                        __click__(e, id, markIndex);
                     }
 
                     break;

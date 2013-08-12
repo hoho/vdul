@@ -29,8 +29,8 @@ body
 <script src="https://rawgithub.com/hoho/concat.js/master/concat.min.js"></script>
 <script src="https://rawgithub.com/hoho/vdul/master/timeline/timeline.js"></script>
 
-<!--<script src="../timeline.js"></script>-->
-<!--<script src="../../../../concat.js/src/concat.min.js"></script>-->
+<!--<script src="../timeline.js"></script>
+<script src="../../../../concat.js/src/concat.min.js"></script>-->
 
 <script>
 
@@ -71,21 +71,36 @@ timeline.setCallbacks({
 
             var events = [],
                 i,
+                j,
                 begin,
-                end;
+                end,
+                marks;
 
             // Generate up to 100 random events.
             for (i = 0; i < 100 * Math.random(); i++) {
                 begin = Math.floor((timeTo - timeFrom) * Math.random() + timeFrom);
                 end = Math.random() > 0.5 ? Math.floor((timeTo - begin) * Math.random() + begin) : begin;
 
+                if (begin < end && Math.random() < 0.3) {
+                    marks = [];
+
+                    for (j = 0; j < 10 * Math.random(); j++) {
+                        marks.push(begin + Math.floor(Math.random() * (end - begin)));
+                    }
+                } else {
+                    marks = undefined;
+                }
+
                 events.push({
                     id: idPrefix + '-' + i,
                     title: Math.random(),
                     begin: begin,
                     end: end,
+                    marks: marks,
                     color: colors[Math.round(Math.random() * (colors.length - 1))]
                 });
+
+                console.log(marks);
             }
 
             timeline.push(timeFrom, timeTo, events);
@@ -93,8 +108,8 @@ timeline.setCallbacks({
         }, 200);
     },
 
-    click: function(e, id) {
-        alert(id);
+    click: function(e, id, markIndex) {
+        alert(id + ', ' + (markIndex === undefined ? 'no marks' : 'mark index: ' + markIndex));
     }
 });
 
