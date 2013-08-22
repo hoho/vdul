@@ -62,6 +62,14 @@
         },
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
+        createAttributes = function(elem, attr, mods) {
+            // Shortcut for attributes object.
+            attr = attr || {};
+            attr['class'] = bemClass(elem, mods);
+            return attr;
+        },
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
         bindMouseWheel = function(elem, callback) {
             var minDelta,
                 handler =
@@ -99,7 +107,10 @@
                     };
 
             if (elem.addEventListener) {
-                var toBind = 'onwheel' in document || document.documentMode >= 9 ? ['wheel'] : ['mousewheel', 'DomMouseScroll', 'MozMousePixelScroll'],
+                var toBind = 'onwheel' in document || document.documentMode >= 9 ?
+                        ['wheel']
+                        :
+                        ['mousewheel', 'DomMouseScroll', 'MozMousePixelScroll'],
                     i;
 
                 for (i = 0; i < toBind.length; i++) {
@@ -182,10 +193,10 @@
                     mousedownX,
                     mousemoved,
 
-                    markAttributes = {
-                        'class': bemClass('mark'),
-                        'data-index': function(index) { return index; }
-                    },
+                    markAttributes = createAttributes(
+                        'mark',
+                        {'data-index': function(index) { return index; }}
+                    ),
 
                     __timeframes = {},
                     __events = {},
@@ -250,17 +261,17 @@
                                 timeTo   = __getTimeByTimeframe__(timeframe + 1);
 
                             $C(timeframesElem)
-                                .div({'class': bemClass('timeframe')})
+                                .div(createAttributes('timeframe'))
                                     .act(function() { t.elem = this; })
                                     .each(__getTicks__(timeFrom, timeTo))
-                                        .div({'class': bemClass('tick'), style: {left: function(index, item) { return item.left; }}})
+                                        .div(createAttributes('tick', {style: {left: function(index, item) { return item.left; }}}))
                                             .span()
                                                 .text(function(index, item) { return item.label; })
                                     .end(3)
-                                    .div({'class': bemClass('events-wrapper')})
-                                        .div({'class': bemClass('events')})
+                                    .div(createAttributes('events-wrapper'))
+                                        .div(createAttributes('events'))
                                             .act(function() { t.eventsElem = this; })
-                                            .div({'class': bemClass('future-overlay')})
+                                            .div(createAttributes('future-overlay'))
                                                 .act(function() { t.futureElem = this; })
                             .end(5);
                         }
@@ -596,11 +607,15 @@
                         timeframeFrom = __timeframeFrom;
                         timeframeTo = __timeframeTo - 1;
 
-                        while (timeframeFrom < __timeframeTo && !isUndefined(__timeframes[timeframeFrom].loading)) {
+                        while (timeframeFrom < __timeframeTo &&
+                               !isUndefined(__timeframes[timeframeFrom].loading))
+                        {
                             timeframeFrom++;
                         }
 
-                        while (timeframeTo >= __timeframeFrom && !isUndefined(__timeframes[timeframeTo].loading)) {
+                        while (timeframeTo >= __timeframeFrom &&
+                               !isUndefined(__timeframes[timeframeTo].loading))
+                        {
                             timeframeTo--;
                         }
 
@@ -872,7 +887,9 @@
                             newEvent.elem1 = event.elem1;
                             css(newEvent.elem1, {'background-color': newEvent.color || ''});
 
-                            if (event.title !== newEvent.title || newEvent.marks.length !== event.marks.length) {
+                            if (event.title !== newEvent.title ||
+                                newEvent.marks.length !== event.marks.length)
+                            {
                                 $C(newEvent.elem2, true)
                                     .each(newEvent.marks)
                                         .span(markAttributes)
@@ -909,7 +926,10 @@
                 ///////////////////////////////////////////////////////////////
                 timelineInternalObj.getX = function(time) {
                     // Returns left position in pixels for time.
-                    return round((__getTimeframeByTime__(time) - __timeframeFrom) * __getTimeframeWidth__() + __getFirstTimeframeLeft__() + 10);
+                    return round(
+                        (__getTimeframeByTime__(time) - __timeframeFrom) * __getTimeframeWidth__() +
+                        __getFirstTimeframeLeft__() + 10
+                    );
                 };
                 ///////////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////
@@ -917,7 +937,9 @@
                     // Returns time for left position in pixels.
                     var timeframeWidth = __getTimeframeWidth__();
 
-                    return __getTimeByTimeframe__((x + __timeframeFrom * timeframeWidth - __getFirstTimeframeLeft__() - 10) / timeframeWidth);
+                    return __getTimeByTimeframe__(
+                        (x + __timeframeFrom * timeframeWidth - __getFirstTimeframeLeft__() - 10) / timeframeWidth
+                    );
                 };
                 ///////////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////
@@ -1001,16 +1023,30 @@
                 });
 
                 bindEventFunc(leftElem, 'click', function() {
-                    timelineInternalObj.setPosition(undefined, __getTimeByTimeframe__(__getTimeframeByTime__(__position) - __viewportSize * 0.4));
+                    timelineInternalObj.setPosition(
+                        undefined,
+                        __getTimeByTimeframe__(
+                            __getTimeframeByTime__(__position) - __viewportSize * 0.4
+                        )
+                    );
                 });
 
                 bindEventFunc(rightElem, 'click', function() {
-                    timelineInternalObj.setPosition(undefined, __getTimeByTimeframe__(__getTimeframeByTime__(__position) + __viewportSize * 0.4));
+                    timelineInternalObj.setPosition(
+                        undefined,
+                        __getTimeByTimeframe__(
+                            __getTimeframeByTime__(__position) + __viewportSize * 0.4
+                        )
+                    );
                 });
 
                 bindMouseWheel(timeframesElem, function(delta) {
                     if (!isUndefined(__minTime)) {
-                        timelineInternalObj.setPosition(__getTimeByTimeframe__(__getTimeframeByTime__(__position) + __viewportSize * delta * 0.002));
+                        timelineInternalObj.setPosition(
+                            __getTimeByTimeframe__(
+                                __getTimeframeByTime__(__position) + __viewportSize * delta * 0.002
+                            )
+                        );
                     }
                 });
 
@@ -1057,7 +1093,11 @@
                 __autoUpdate = __evaluatedBounds.autoUpdate;
 
                 val = new Date(__minTime);
-                __actualMinTime = new Date(val.getFullYear(), val.getMonth(), val.getDate()).getTime();
+                __actualMinTime = new Date(
+                    val.getFullYear(),
+                    val.getMonth(),
+                    val.getDate()
+                ).getTime();
 
                 __mainView.bounds(
                     __evaluatedBounds.viewport,
@@ -1152,21 +1192,21 @@
         ///////////////////////////////////////////////////////////////////////
 
         $C(container, true)
-            .div({'class': bemClass()})
-                .div({'class': bemClass('error-wrapper')})
-                    .act(function() { __errorElem = this; })
-                        .span({'class': bemClass('error')})
-                .end(2)
+            .div(createAttributes())
                 .act(function() { __elem = this; })
-                .div({'class': bemClass('left')})
+                .div(createAttributes('error-wrapper'))
+                    .act(function() { __errorElem = this; })
+                        .span(createAttributes('error'))
+                .end(2)
+                .div(createAttributes('left'))
                     .act(function() { __mainViewLeftElem = this;  })
                     .div()
                 .end(2)
-                .div({'class': bemClass('right')})
+                .div(createAttributes('right'))
                     .act(function() { __mainViewRightElem = this;  })
                     .div()
                 .end(2)
-                .div({'class': bemClass('timeframes')})
+                .div(createAttributes('timeframes'))
                     .act(function() {
                         __mainView = new TimelineInternal(
                             this,
@@ -1182,24 +1222,29 @@
                             },
 
                             function(pos, prev) {
-                                __scrollBar.setPosition(isUndefined(prev) ? pos : __scrollBar.getPosition() + (pos - prev));
+                                __scrollBar.setPosition(
+                                    isUndefined(prev) ?
+                                        pos
+                                        :
+                                        __scrollBar.getPosition() + (pos - prev)
+                                );
                             }
                         );
                     })
                 .end()
-                .div({'class': bemClass('gap')}, true)
-                .div({'class': bemClass('pick')})
+                .div(createAttributes('gap'), true)
+                .div(createAttributes('pick'))
                     .act(function() { __pickElem = this; })
                 .end()
-                .div({'class': bemClass('left', {scrollbar: true})})
+                .div(createAttributes('left', {scrollbar: true}))
                     .act(function() { __scrollBarLeftElem = this;  })
                     .div()
                 .end(2)
-                .div({'class': bemClass('right', {scrollbar: true})})
+                .div(createAttributes('right', {scrollbar: true}))
                     .act(function() { __scrollBarRightElem = this;  })
                     .div()
                 .end(2)
-                .div({'class': bemClass('scrollbar')})
+                .div(createAttributes('scrollbar'))
                     .act(function() {
                         __scrollBar = new TimelineInternal(
                             this,
