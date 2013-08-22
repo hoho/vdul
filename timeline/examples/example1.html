@@ -26,6 +26,7 @@ body
 
 
 <script src="https://yandex.st/jquery/1.10.2/jquery.min.js"></script>
+
 <script src="https://rawgithub.com/hoho/concat.js/master/concat.min.js"></script>
 <script src="https://rawgithub.com/hoho/vdul/master/timeline/timeline.js"></script>
 
@@ -53,7 +54,7 @@ minTime.setDate(minTime.getDate() - 1000);
 maxTime.setDate(maxTime.getDate() + 1000);
 
 // Setting Timeline bounds.
-timeline.setBounds({
+timeline.bounds({
     minTime: minTime.getTime(),
     maxTime: maxTime.getTime(),
     now: function() { return new Date().getTime() }
@@ -64,22 +65,25 @@ var idPrefix = 0,
     colors = ['coral', 'darkseagreen', 'steelblue', 'orange'];
 
 // Setting callbacks.
-timeline.setCallbacks({
-    getEvents: function(timeFrom, timeTo) {
-        window.setTimeout(function() {
+timeline.events(function(timeFrom, timeTo) {
+    window.setTimeout(function() {
+        var events = [],
+            i,
+            j,
+            begin,
+            end,
+            marks,
+            _24hours = 86400000,
+            dayFrom = timeFrom,
+            dayTo = timeFrom + _24hours;
+
+        // Generate up to 100 random events.
+        while (dayTo <= timeTo) {
             idPrefix++;
 
-            var events = [],
-                i,
-                j,
-                begin,
-                end,
-                marks;
-
-            // Generate up to 100 random events.
             for (i = 0; i < 100 * Math.random(); i++) {
-                begin = Math.floor((timeTo - timeFrom) * Math.random() + timeFrom);
-                end = Math.random() > 0.5 ? Math.floor((timeTo - begin) * Math.random() + begin) : begin;
+                begin = Math.floor((dayTo - dayFrom) * Math.random() + dayFrom);
+                end = Math.random() > 0.5 ? Math.floor((dayTo - begin) * Math.random() + begin) : begin;
 
                 if (begin < end && Math.random() < 0.3) {
                     marks = [];
@@ -101,18 +105,24 @@ timeline.setCallbacks({
                 });
             }
 
-            timeline.push(timeFrom, timeTo, events);
+            dayFrom = dayTo;
+            dayTo += _24hours;
+        }
 
-        }, 200);
-    },
+        if (idPrefix === 1) {
+            timeline.error(timeFrom, timeTo, 'Oh no, it happened')
+        } else
+        timeline.push(timeFrom, timeTo, events);
 
-    click: function(e, id, markIndex) {
-        alert(id + ', ' + (markIndex === undefined ? 'no marks' : 'mark index: ' + markIndex));
-    }
+    }, 200);
+});
+
+timeline.click(function(e, id, markIndex) {
+    alert(id + ', ' + (markIndex === undefined ? 'no marks' : 'mark index: ' + markIndex));
 });
 
 // Setting initial position to start working.
-timeline.position(new Date().getTime() - 3600000 * 12);
+timeline.position(new Date().getTime());
 
 </script>
 </body>
