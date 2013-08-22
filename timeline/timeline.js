@@ -200,7 +200,10 @@
 
                     __position,
                     __realPosition,
-                    __positionTimer,
+
+                    __curAnimationDestination,
+                    __curAnimationStepFunc,
+                    __curNoPositionCallback,
 
                     __prevNow,
 
@@ -496,7 +499,7 @@
 
                             if (item.begin) {
                                 if (!force && event.positioned && !rows[event.row]) {
-                                    rows[event.row] = true;
+                                    rows[event.row] = event;
                                     continue;
                                 }
 
@@ -506,7 +509,7 @@
                                     j++;
                                 }
 
-                                rows[event.row = j] = true;
+                                rows[(event.row = j)] = event;
 
                                 left = round((event.tbegin - event.timeframe) * timeframeWidth);
                                 top = ceil(j / 2) * (T.EVENT_HEIGHT + T.EVENT_VSPACING) * (j % 2 === 0 ? 1 : -1);
@@ -618,16 +621,18 @@
                 };
                 ///////////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////
-                timelineInternalObj.setPosition = function(pos, animate, animationStep, noPositionCallback) {
+                timelineInternalObj.setPosition = function(pos, animate, animationStepFunc, noPositionCallback) {
                     if (!isUndefined(animate)) {
                         var x = timelineInternalObj.getX(__position),
-                            minTimeDelta = abs(__position - timelineInternalObj.byX(x + (__position > animate ? -5 : 5)));
+                            delta = abs(__position - animate),
+                            offset = __position > animate ? -3 : 3,
+                            minTimeDelta = abs(__position - timelineInternalObj.byX(x + offset));
 
-                        if (abs(__position - animate) < minTimeDelta) {
+                        if (delta < minTimeDelta) {
                             pos = animate;
                             animate = undefined;
                         } else {
-                            pos = (__position + animate) / 2;
+                            pos = __position + delta / offset;
                         }
                     }
 
@@ -638,12 +643,12 @@
                         timeframeTo,
                         i,
                         val,
-                        unadopted = [];
+                        unadopted = [],
+                        getEventsFunc;
 
-                    if (__positionTimer) {
-                        window.clearTimeout(__positionTimer);
-                        __positionTimer = undefined;
-                    }
+                    __curAnimationDestination = animate;
+                    __curAnimationStepFunc = animationStepFunc;
+                    __curNoPositionCallback = noPositionCallback;
 
                     prevPos = __position;
 
@@ -703,7 +708,7 @@
                             window.clearTimeout(__getEventsTimer);
                         }
 
-                        __getEventsTimer = window.setTimeout(function() {
+                        getEventsFunc = function() {
                             __getEventsTimer = undefined;
 
                             timeFrom = val.timeFrom;
@@ -712,21 +717,35 @@
                             timelineInternalObj.status(timeFrom, timeTo, true, false);
 
                             __getEvents__(timeFrom, timeTo);
-                        }, 55);
+                        };
+
+                        // In case of animation we're probably jumping through
+                        // quite fast. So, we need to request events only when
+                        // animation stops.
+                        if (isUndefined(animate)) {
+                            getEventsFunc();
+                        } else {
+                            __getEventsTimer = window.setTimeout(getEventsFunc, 55);
+                        }
                     }
 
                     if (!isUndefined(animate) && __position !== prevPos) {
-                        __positionTimer = window.setTimeout(
+                        window.requestAnimationFrame(
                             function() {
-                                __positionTimer = undefined;
-
-                                timelineInternalObj.setPosition(undefined, animate, animationStep, noPositionCallback);
-                            }, 50
+                                if (!isUndefined(__curAnimationDestination)) {
+                                    timelineInternalObj.setPosition(
+                                        undefined,
+                                        __curAnimationDestination,
+                                        __curAnimationStepFunc,
+                                        __curNoPositionCallback
+                                    );
+                                }
+                            }
                         );
                     }
 
-                    if (animationStep) {
-                        animationStep(__position, prevPos);
+                    if (animationStepFunc) {
+                        animationStepFunc(__position, prevPos);
                     }
 
                     if (!noPositionCallback && positionCallback) {
