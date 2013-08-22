@@ -442,6 +442,8 @@
 
 .b-timeline__mark
 {
+    border-color: #fff;
+
     border-right: 1px solid rgba(255,255,255,.6);
 
     height: 10px;
@@ -485,6 +487,13 @@
 
 .b-timeline__gap
 {
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0, #f7f7f7), color-stop(.9, #fff));
+    background: -webkit-linear-gradient(top, #f7f7f7 0, #fff 90%);
+    background: -moz-linear-gradient(top, #f7f7f7 0, #fff 90%);
+    background: -ms-linear-gradient(top, #f7f7f7 0, #fff 90%);
+    background: -o-linear-gradient(top, #f7f7f7 0, #fff 90%);
+    background: linear-gradient(to bottom, #f7f7f7 0, #fff 90%);
+
     border-bottom: 1px solid #ddd;
 
     border-top: 1px solid #e8e8e8;
@@ -498,6 +507,23 @@
     width: 100%;
 
     z-index: 3;
+}
+
+.b-timeline__gap:before
+{
+    background: #fff;
+
+    content: '';
+
+    height: 1px;
+
+    left: 0;
+
+    position: absolute;
+
+    top: 0;
+
+    width: 100%;
 }
 
 .b-timeline__pick
