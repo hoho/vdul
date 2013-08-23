@@ -204,6 +204,8 @@
                     __timeframeFrom,
                     __timeframeTo,
 
+                    __timeframeElemWidth,
+
                     __preloadBefore,
                     __preloadAfter,
 
@@ -300,7 +302,10 @@
                     ///////////////////////////////////////////////////////////
                     ///////////////////////////////////////////////////////////
                     __getTimeframeWidth__ = function() {
-                        return ceil(timeframesElem.clientWidth * (1 / __viewportSize));
+                        if (isUndefined(__timeframeElemWidth)) {
+                            __timeframeElemWidth = timeframesElem.clientWidth;
+                        }
+                        return ceil(__timeframeElemWidth * (1 / __viewportSize));
                     },
                     ///////////////////////////////////////////////////////////
                     ///////////////////////////////////////////////////////////
@@ -311,10 +316,7 @@
                                 event,
                                 timeframeFrom,
                                 timeframeTo,
-                                timeframeWidth = __getTimeframeWidth__(),
-                                timeframe,
-                                hspacing = T.EVENT_HSPACING / timeframeWidth,
-                                letterWidth = T.LETTER_WIDTH / timeframeWidth;
+                                timeframe;
 
                             for (i = 0; i < events.length; i++) {
                                 event = events[i];
@@ -344,23 +346,7 @@
                                 timeframe = __timeframes[timeframe];
 
                                 event.tbegin = timeframeFrom;
-
-                                if (!isUndefined(event.end)) {
-                                    // Getting event's right position.
-                                    if (event.begin === event.end) {
-                                        // It's a point event.
-                                        event.tend = event.tbegin;
-                                        event.tend2 = event.tbegin + event.title.length * letterWidth + hspacing;
-                                    } else {
-                                        // It's an interval.
-                                        event.tend = timeframeTo;
-                                        event.tend2 = event.tbegin + event.title.length * letterWidth + hspacing;
-
-                                        if (event.tend2 - event.tend < hspacing) {
-                                            event.tend2 = event.tend + hspacing;
-                                        }
-                                    }
-                                }
+                                event.tend = timeframeTo;
 
                                 // Adding this event to timeframe's events and to
                                 // __events.
@@ -488,7 +474,9 @@
                             timeframeWidth = __getTimeframeWidth__(),
                             left,
                             top,
-                            rows = {};
+                            rows = {},
+                            hspacing = T.EVENT_HSPACING / timeframeWidth,
+                            letterWidth = T.LETTER_WIDTH / timeframeWidth;
 
                         for (i in __events) {
                             event = __events[i];
@@ -496,6 +484,16 @@
                             sweepLine.push({begin: true, event: event, sort: event.tbegin});
 
                             if (!isUndefined(event.end)) {
+                                if (force || isUndefined(event.tend2)) {
+                                    // Getting event's right position.
+                                    // tend is an event's end,
+                                    // tend2 is a visible end (including title).
+                                    event.tend2 = event.tbegin + event.title.length * letterWidth + hspacing;
+                                    if (event.tend2 - event.tend < hspacing) {
+                                        event.tend2 = event.tend + hspacing;
+                                    }
+                                }
+
                                 sweepLine.push({begin: false, event: event, sort: event.tend2});
                             }
                         }
@@ -514,10 +512,14 @@
                                     continue;
                                 }
 
-                                j = 0;
+                                if (event.positioned && !rows[event.row]) {
+                                    j = event.row;
+                                } else {
+                                    j = 0;
 
-                                while (rows[j]) {
-                                    j++;
+                                    while (rows[j]) {
+                                        j++;
+                                    }
                                 }
 
                                 rows[(event.row = j)] = event;
@@ -944,6 +946,7 @@
                 ///////////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////
                 timelineInternalObj.resize = function() {
+                    __timeframeElemWidth = undefined;
                     timelineInternalObj.setPosition(__position);
                     __positionEvents__(true);
                 };
@@ -1157,7 +1160,7 @@
         ///////////////////////////////////////////////////////////////////////
         timelineObj.position = function(pos) {
             __evaluateBounds__();
-            return __mainView.setPosition(pos);
+            return isUndefined(pos) ? __mainView.getPosition() : __mainView.setPosition(pos);
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
@@ -1187,6 +1190,13 @@
         ///////////////////////////////////////////////////////////////////////
         timelineObj.click = function(callback) {
             __clickCallback = callback;
+        };
+        ///////////////////////////////////////////////////////////////////////
+        ///////////////////////////////////////////////////////////////////////
+        timelineObj.resize = function() {
+            __evaluateBounds__();
+            __mainView.resize();
+            __scrollBar.resize();
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
@@ -1334,9 +1344,8 @@
             }
 
             __resizeTimer = window.setTimeout(function() {
-                __mainView.resize();
-                __scrollBar.resize();
                 __resizeTimer = undefined;
+                timelineObj.resize();
             }, 100);
         });
     };
