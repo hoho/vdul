@@ -70,6 +70,8 @@ timeline.bounds({
     maxTime: maxTime.getTime(),
     preloadBefore: 2,
     preloadAfter: 2,
+    minViewport: 0.25,
+    maxViewport: 4,
     now: function() { return new Date().getTime() }
     //autoUpdate: 5000
 });

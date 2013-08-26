@@ -146,6 +146,8 @@
                 autoUpdate:          false,
 
                 viewport:            1,
+                minViewport:         undefined,
+                maxViewport:         undefined,
                 preloadBefore:       1,
                 preloadAfter:        1,
 
@@ -168,6 +170,7 @@
             __elem,
             __errorElem,
             __pickElem,
+            __scalerElem,
 
             __mainView,
             __mainViewLeftElem,
@@ -1144,6 +1147,10 @@
                 }
             }
 
+            __evaluateBounds__();
+
+            css(__scalerElem, {display: isUndefined(__evaluatedBounds.minViewport) || isUndefined(__evaluatedBounds.maxViewport) ? 'none' : 'block'});
+
             return __evaluatedBounds;
         };
         ///////////////////////////////////////////////////////////////////////
@@ -1201,12 +1208,45 @@
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
 
+        var bindLessMoreClick = function() {
+            var self = this;
+            bindEventFunc(self, 'click', function() {
+                if (__evaluatedBounds) {
+                    var viewport = __evaluatedBounds.viewport,
+                        minViewport = __evaluatedBounds.minViewport,
+                        maxViewport = __evaluatedBounds.maxViewport;
+
+                    if (!isUndefined(minViewport) && !isUndefined(maxViewport)) {
+                        viewport += 0.1 * (self.className.indexOf('more') > 0 ? -1 : 1);
+                        if (viewport < minViewport) {
+                            viewport = minViewport;
+                        }
+                        if (viewport > maxViewport) {
+                            viewport = maxViewport;
+                        }
+                        timelineObj.bounds({viewport: viewport});
+                        timelineObj.resize();
+                    }
+                }
+            });
+        };
+
         $C(container, true)
             .div(createAttributes())
                 .act(function() { __elem = this; })
                 .div(createAttributes('error-wrapper'))
                     .act(function() { __errorElem = this; })
                         .span(createAttributes('error'))
+                .end(2)
+                .div(createAttributes('scaler'))
+                    .act(function() { __scalerElem = this; })
+                    .div(createAttributes('scaler-button', undefined, {less: true}))
+                        .act(bindLessMoreClick)
+                    .end()
+                    .div(createAttributes('scaler-button', undefined, {more: true}))
+                        .act(bindLessMoreClick)
+                    .end()
+                    .div(createAttributes('scaler-ruler'))
                 .end(2)
                 .div(createAttributes('left'))
                     .act(function() { __mainViewLeftElem = this;  })
@@ -1261,7 +1301,7 @@
                             __scrollBarLeftElem,
                             __scrollBarRightElem,
 
-                            false,
+                            undefined,
 
                             function(e, pos) {
                                 __mainView.setPosition(
