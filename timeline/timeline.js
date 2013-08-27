@@ -857,6 +857,7 @@
 
                         newEvent = {
                             id:         event.id,
+                            data:       event.data,
                             title:      event.title ? event.title + '' : '',
                             begin:      isUndefined(event.begin) ? event.end : event.begin,
                             end:        event.end,
@@ -1019,7 +1020,8 @@
                             e,
                             __getTimeByTimeframe__(w / __getTimeframeWidth__() + __timeframeFrom),
                             id,
-                            markIndex
+                            markIndex,
+                            (__events[id] || {}).data
                         );
                     }
                 });
@@ -1265,9 +1267,9 @@
 
                             true,
 
-                            function(e, pos, id, markIndex) {
+                            function(e, pos, id, markIndex, data) {
                                 if (!isUndefined(id) && __clickCallback) {
-                                    __clickCallback(e, id, markIndex);
+                                    __clickCallback(e, id, markIndex, data);
                                 }
                             },
 

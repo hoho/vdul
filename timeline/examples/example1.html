@@ -112,6 +112,7 @@ timeline.events(function(timeFrom, timeTo) {
 
                 events.push({
                     id: idPrefix + '-' + i,
+                    data: 'hello from ' + idPrefix + '-' + i,
                     title: Math.random(),
                     begin: begin,
                     end: end,
@@ -132,8 +133,8 @@ timeline.events(function(timeFrom, timeTo) {
     }, 200);
 });
 
-timeline.click(function(e, id, markIndex) {
-    alert(id + ', ' + (markIndex === undefined ? 'no marks' : 'mark index: ' + markIndex));
+timeline.click(function(e, id, markIndex, data) {
+    alert(id + ', ' + (markIndex === undefined ? 'no marks' : 'mark index: ' + markIndex) + (data ? ', ' + data : ''));
 });
 
 // Setting initial position to start working.
