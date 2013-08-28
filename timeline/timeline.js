@@ -208,6 +208,7 @@
                     __timeframeTo,
 
                     __timeframeElemWidth,
+                    __prevViewportSize,
 
                     __preloadBefore,
                     __preloadAfter,
@@ -690,6 +691,8 @@
                         unadopted = [],
                         getEventsFunc;
 
+                    __prevViewportSize = __viewportSize;
+
                     __curAnimationDestination = animate;
                     __curAnimationStepFunc = animationStepFunc;
                     __curNoPositionCallback = noPositionCallback;
@@ -974,7 +977,9 @@
                 ///////////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////
                 timelineInternalObj.resize = function() {
-                    if (timeframesElem.clientWidth !== __timeframeElemWidth) {
+                    if (timeframesElem.clientWidth !== __timeframeElemWidth ||
+                        __prevViewportSize !== __viewportSize)
+                    {
                         __timeframeElemWidth = undefined;
                         timelineInternalObj.setPosition(__position);
                         __positionEvents__(true);
@@ -1198,11 +1203,11 @@
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
         timelineObj.position = function(pos) {
-            __evaluateBounds__();
-
             if (isUndefined(pos)) {
                 return __mainView.getPosition();
             } else {
+                __evaluateBounds__();
+
                 __mainView.setPosition(pos);
 
                 return timelineObj;
