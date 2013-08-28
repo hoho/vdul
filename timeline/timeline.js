@@ -474,12 +474,15 @@
                             markLeft,
                             markPrevLeft,
                             sweepLine = [],
+                            lastPositionedIndex,
                             timeframeWidth = __getTimeframeWidth__(),
                             left,
                             top,
                             rows = {},
                             hspacing = T.EVENT_HSPACING / timeframeWidth,
-                            letterWidth = T.LETTER_WIDTH / timeframeWidth;
+                            letterWidth = T.LETTER_WIDTH / timeframeWidth,
+                            lookAheadRow,
+                            lookAheadRows;
 
                         for (i in __events) {
                             event = __events[i];
@@ -505,64 +508,83 @@
                             return a.sort < b.sort ? -1 : a.sort > b.sort ? 1 : 0;
                         });
 
+                        lastPositionedIndex = -1;
+
+                        for (i = 0; i < sweepLine.length; i++) {
+                            item = sweepLine[i];
+                            event = item.event;
+                            event[item.begin ? 'i' : 'i2'] = i;
+                            if (event.positioned) {
+                                lastPositionedIndex = i;
+                            }
+                        }
+
                         for (i = 0; i < sweepLine.length; i++) {
                             item = sweepLine[i];
                             event = item.event;
 
                             if (item.begin) {
-                                if (!force && event.positioned && !rows[event.row]) {
-                                    rows[event.row] = event;
-                                    continue;
-                                }
-
-                                if (event.positioned && !rows[event.row]) {
-                                    j = event.row;
+                                if (event.positioned && isUndefined(rows[event.row])) {
+                                    rows[(j = event.row)] = true;
                                 } else {
+                                    lookAheadRows = {};
+
+                                    if (!force && (i < lastPositionedIndex) && !event.positioned) {
+                                        for (j = i + 1; j < event.i2; j++) {
+                                            // TODO: Think more about this look-ahead complexity.
+                                            if (!isUndefined((lookAheadRow = sweepLine[j].event.row))) {
+                                                lookAheadRows[lookAheadRow] = true;
+                                            }
+                                        }
+                                    }
+
                                     j = 0;
 
-                                    while (rows[j]) {
+                                    while (rows[j] || lookAheadRows[j]) {
                                         j++;
                                     }
+
+                                    rows[(event.row = j)] = true;
                                 }
 
-                                rows[(event.row = j)] = event;
+                                if (force || !event.positioned) {
+                                    left = round((event.tbegin - event.timeframe) * timeframeWidth);
+                                    top = ceil(j / 2) * (T.EVENT_HEIGHT + T.EVENT_VSPACING) * (j % 2 === 0 ? 1 : -1);
 
-                                left = round((event.tbegin - event.timeframe) * timeframeWidth);
-                                top = ceil(j / 2) * (T.EVENT_HEIGHT + T.EVENT_VSPACING) * (j % 2 === 0 ? 1 : -1);
-
-                                css(event.elem1, {
-                                    left: left,
-                                    top: top,
-                                    width: event.begin === event.end ? '' : (round((event.tend - event.tbegin) * timeframeWidth) || 1)
-                                });
-
-                                j = 0;
-                                markPrevLeft = 0;
-                                mark = event.elem2.firstChild;
-
-                                while (j < event.marks.length) {
-                                    markLeft = round((__getTimeframeByTime__(event.marks[j]) - event.timeframe) * timeframeWidth) - left;
-                                    css(mark, {
-                                        left: markPrevLeft,
-                                        width: markLeft - markPrevLeft
+                                    css(event.elem1, {
+                                        left: left,
+                                        top: top,
+                                        width: event.begin === event.end ? '' : (round((event.tend - event.tbegin) * timeframeWidth) || 1)
                                     });
 
-                                    markPrevLeft = markLeft;
+                                    j = 0;
+                                    markPrevLeft = 0;
+                                    mark = event.elem2.firstChild;
 
-                                    j++;
-                                    mark = mark.nextSibling;
+                                    while (j < event.marks.length) {
+                                        markLeft = round((__getTimeframeByTime__(event.marks[j]) - event.timeframe) * timeframeWidth) - left;
+                                        css(mark, {
+                                            left: markPrevLeft,
+                                            width: markLeft - markPrevLeft
+                                        });
+
+                                        markPrevLeft = markLeft;
+
+                                        j++;
+                                        mark = mark.nextSibling;
+                                    }
+
+                                    css(event.elem2, {
+                                        left: left,
+                                        top: top,
+                                        width: round((event.tend2 - event.tbegin) * timeframeWidth)
+                                    });
+
+                                    // Remember left position for __setUnfinishedEventsWidths__.
+                                    event.left = left;
+
+                                    event.positioned = true;
                                 }
-
-                                css(event.elem2, {
-                                    left: left,
-                                    top: top,
-                                    width: round((event.tend2 - event.tbegin) * timeframeWidth)
-                                });
-
-                                // Remember left position for __setUnfinishedEventsWidths__.
-                                event.left = left;
-
-                                event.positioned = true;
                             } else {
                                 rows[event.row] = undefined;
                             }
