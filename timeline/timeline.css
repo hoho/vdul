@@ -647,17 +647,17 @@
     width: 9px;
 }
 
-.b-timeline__scaler-button_less
+.b-timeline__scaler-button_zoom-out
 {
     left: -25px;
 }
 
-.b-timeline__scaler-button_more
+.b-timeline__scaler-button_zoom-in
 {
     right: -25px;
 }
 
-.b-timeline__scaler-button_more:after
+.b-timeline__scaler-button_zoom-in:after
 {
     background: #333;
 

@@ -75,6 +75,7 @@ timeline
                 var events = [],
                     i,
                     j,
+                    total,
                     begin,
                     end,
                     marks,
@@ -82,11 +83,13 @@ timeline
                     dayFrom = timeFrom,
                     dayTo = timeFrom + _24hours;
 
-                // Generate up to 100 random events.
+                // Generate from 10 to 30 random events per 24 hours.
                 while (dayTo <= timeTo) {
                     idPrefix++;
 
-                    for (i = 0; i < 100 * Math.random(); i++) {
+                    total = Math.floor(10 + 20 * Math.random());
+
+                    for (i = 0; i < total; i++) {
                         begin = Math.floor((dayTo - dayFrom) * Math.random() + dayFrom);
                         end = Math.random() > 0.5 ? Math.floor((dayTo - begin) * Math.random() + begin) : begin;
 

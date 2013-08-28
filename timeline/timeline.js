@@ -1260,7 +1260,7 @@
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
 
-        var bindLessMoreClick = function() {
+        var bindZoomClick = function() {
             var self = this;
             bindEventFunc(self, 'click', function() {
                 if (__evaluatedBounds) {
@@ -1269,7 +1269,7 @@
                         maxViewport = __evaluatedBounds.maxViewport;
 
                     if (!isUndefined(minViewport) && !isUndefined(maxViewport)) {
-                        viewport += 0.1 * (self.className.indexOf('more') > 0 ? -1 : 1);
+                        viewport += 0.1 * (self.className.indexOf('zoom-in') > 0 ? -1 : 1);
                         if (viewport < minViewport) {
                             viewport = minViewport;
                         }
@@ -1292,11 +1292,11 @@
                 .end(2)
                 .div(createAttributes('scaler'))
                     .act(function() { __scalerElem = this; })
-                    .div(createAttributes('scaler-button', undefined, {less: true}))
-                        .act(bindLessMoreClick)
+                    .div(createAttributes('scaler-button', undefined, {'zoom-out': true}))
+                        .act(bindZoomClick)
                     .end()
-                    .div(createAttributes('scaler-button', undefined, {more: true}))
-                        .act(bindLessMoreClick)
+                    .div(createAttributes('scaler-button', undefined, {'zoom-in': true}))
+                        .act(bindZoomClick)
                     .end()
                     .div(createAttributes('scaler-ruler'))
                 .end(2)
