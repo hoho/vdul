@@ -265,7 +265,11 @@
 
 .b-timeline__tick span
 {
-    margin: 2px;
+    background: #fff;
+
+    display: block;
+
+    padding: 3px;
 }
 
 .b-timeline__events-wrapper
@@ -481,11 +485,6 @@
     right: 10px;
 
     z-index: 1;
-}
-
-.b-timeline__scrollbar .b-timeline__tick
-{
-    padding-top: 3px;
 }
 
 .b-timeline__gap
