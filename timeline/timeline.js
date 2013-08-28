@@ -972,9 +972,11 @@
                 ///////////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////
                 timelineInternalObj.resize = function() {
-                    __timeframeElemWidth = undefined;
-                    timelineInternalObj.setPosition(__position);
-                    __positionEvents__(true);
+                    if (timeframesElem.clientWidth !== __timeframeElemWidth) {
+                        __timeframeElemWidth = undefined;
+                        timelineInternalObj.setPosition(__position);
+                        __positionEvents__(true);
+                    }
                 };
                 ///////////////////////////////////////////////////////////////
                 ///////////////////////////////////////////////////////////////
