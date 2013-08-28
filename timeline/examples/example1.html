@@ -118,11 +118,7 @@ timeline
                     dayTo += _24hours;
                 }
 
-                if (idPrefix === 1) {
-                    timeline.error(timeFrom, timeTo, 'Oh no, it happened')
-                } else
                 timeline.push(timeFrom, timeTo, events);
-
             }, 200);
         })
     // Setting click handler.
