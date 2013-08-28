@@ -899,9 +899,9 @@
                             positioned: false
                         };
 
-                        newEvent.marks.sort();
-
                         if ((event = __events[newEvent.id])) {
+                            event.data = newEvent.data;
+
                             if (event.title === newEvent.title &&
                                 event.begin === newEvent.begin &&
                                 event.end === newEvent.end &&
@@ -933,6 +933,8 @@
 
                             newEvent.elem2 = event.elem2;
                         }
+
+                        newEvent.marks.sort();
 
                         unadopted.push(newEvent);
                     }
