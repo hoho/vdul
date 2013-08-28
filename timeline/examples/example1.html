@@ -46,99 +46,89 @@ body
 })(window);
 
 
-function roundDate(date) {
-    var ret = new Date(date);
-
-    ret.setHours(0);
-    ret.setMinutes(0);
-    ret.setSeconds(0);
-    ret.setMilliseconds(0);
-
-    return ret;
-}
-
-var timeline = new Timeline(document.body, function(elem, event, handler) { $(elem).on(event, handler); }),
-    minTime = roundDate(new Date()),
-    maxTime = new Date(minTime);
-
-minTime.setDate(minTime.getDate() - 1000);
-maxTime.setDate(maxTime.getDate() + 1000);
-
-// Setting Timeline bounds.
-timeline.bounds({
-    minTime: minTime.getTime(),
-    maxTime: maxTime.getTime(),
-    preloadBefore: 2,
-    preloadAfter: 2,
-    minViewport: 0.25,
-    maxViewport: 4,
-    now: function() { return new Date().getTime() }
-    //autoUpdate: 5000
-});
+var timeline = new Timeline(
+        document.body,
+        function(elem, event, handler) { $(elem).on(event, handler); }
+    );
 
 var idPrefix = 0,
     colors = ['coral', 'darkseagreen', 'steelblue', 'orange'];
 
 // Setting callbacks.
-timeline.events(function(timeFrom, timeTo) {
-    window.setTimeout(function() {
-        var events = [],
-            i,
-            j,
-            begin,
-            end,
-            marks,
-            _24hours = 86400000,
-            dayFrom = timeFrom,
-            dayTo = timeFrom + _24hours;
+timeline
+    // Setting Timeline bounds.
+    .bounds(
+        {
+            minTime: new Date(2010, 0, 1).getTime(),
+            maxTime: new Date(2015, 0, 1).getTime(),
+            preloadBefore: 2,
+            preloadAfter: 2,
+            minViewport: 0.25,
+            maxViewport: 4,
+            now: function() { return new Date().getTime() }
+            //autoUpdate: 5000
+        })
+    // Setting events getter.
+    .events(
+        function(timeFrom, timeTo) {
+            window.setTimeout(function() {
+                var events = [],
+                    i,
+                    j,
+                    begin,
+                    end,
+                    marks,
+                    _24hours = 86400000,
+                    dayFrom = timeFrom,
+                    dayTo = timeFrom + _24hours;
 
-        // Generate up to 100 random events.
-        while (dayTo <= timeTo) {
-            idPrefix++;
+                // Generate up to 100 random events.
+                while (dayTo <= timeTo) {
+                    idPrefix++;
 
-            for (i = 0; i < 100 * Math.random(); i++) {
-                begin = Math.floor((dayTo - dayFrom) * Math.random() + dayFrom);
-                end = Math.random() > 0.5 ? Math.floor((dayTo - begin) * Math.random() + begin) : begin;
+                    for (i = 0; i < 100 * Math.random(); i++) {
+                        begin = Math.floor((dayTo - dayFrom) * Math.random() + dayFrom);
+                        end = Math.random() > 0.5 ? Math.floor((dayTo - begin) * Math.random() + begin) : begin;
 
-                if (begin < end && Math.random() < 0.3) {
-                    marks = [];
+                        if (begin < end && Math.random() < 0.3) {
+                            marks = [];
 
-                    for (j = 0; j < 10 * Math.random(); j++) {
-                        marks.push(begin + Math.floor(Math.random() * (end - begin)));
+                            for (j = 0; j < 10 * Math.random(); j++) {
+                                marks.push(begin + Math.floor(Math.random() * (end - begin)));
+                            }
+                        } else {
+                            marks = undefined;
+                        }
+
+                        events.push({
+                            id: idPrefix + '-' + i,
+                            data: 'hello from ' + idPrefix + '-' + i,
+                            title: Math.random(),
+                            begin: begin,
+                            end: end,
+                            marks: marks,
+                            color: colors[Math.round(Math.random() * (colors.length - 1))]
+                        });
                     }
-                } else {
-                    marks = undefined;
+
+                    dayFrom = dayTo;
+                    dayTo += _24hours;
                 }
 
-                events.push({
-                    id: idPrefix + '-' + i,
-                    data: 'hello from ' + idPrefix + '-' + i,
-                    title: Math.random(),
-                    begin: begin,
-                    end: end,
-                    marks: marks,
-                    color: colors[Math.round(Math.random() * (colors.length - 1))]
-                });
-            }
+                if (idPrefix === 1) {
+                    timeline.error(timeFrom, timeTo, 'Oh no, it happened')
+                } else
+                timeline.push(timeFrom, timeTo, events);
 
-            dayFrom = dayTo;
-            dayTo += _24hours;
-        }
-
-        if (idPrefix === 1) {
-            timeline.error(timeFrom, timeTo, 'Oh no, it happened')
-        } else
-        timeline.push(timeFrom, timeTo, events);
-
-    }, 200);
-});
-
-timeline.click(function(e, id, markIndex, data) {
-    alert(id + ', ' + (markIndex === undefined ? 'no marks' : 'mark index: ' + markIndex) + (data ? ', ' + data : ''));
-});
-
-// Setting initial position to start working.
-timeline.position(new Date().getTime());
+            }, 200);
+        })
+    // Setting click handler.
+    .click(
+        function(e, id, markIndex, data) {
+            alert(id + ', ' + (markIndex === undefined ? 'no marks' : 'mark index: ' + markIndex) + (data ? ', ' + data : ''));
+        })
+    // Setting initial position to start working.
+    .position(new Date().getTime());
 
 </script>
 </body>

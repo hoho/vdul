@@ -513,7 +513,9 @@
                         for (i = 0; i < sweepLine.length; i++) {
                             item = sweepLine[i];
                             event = item.event;
+
                             event[item.begin ? 'i' : 'i2'] = i;
+
                             if (event.positioned) {
                                 lastPositionedIndex = i;
                             }
@@ -1177,23 +1179,34 @@
 
             css(__scalerElem, {display: isUndefined(__evaluatedBounds.minViewport) || isUndefined(__evaluatedBounds.maxViewport) ? 'none' : 'block'});
 
-            return __evaluatedBounds;
+            return timelineObj;
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
         timelineObj.events = function(callback) {
             __mainView.events(bind(timelineObj, callback));
+
+            return timelineObj;
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
         timelineObj.timing = function(getTimeByTimeframe, getTimeframeByTime, getTicks) {
             __mainView.timing(getTimeByTimeframe, getTimeframeByTime, getTicks);
+
+            return timelineObj;
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
         timelineObj.position = function(pos) {
             __evaluateBounds__();
-            return isUndefined(pos) ? __mainView.getPosition() : __mainView.setPosition(pos);
+
+            if (isUndefined(pos)) {
+                return __mainView.getPosition();
+            } else {
+                __mainView.setPosition(pos);
+
+                return timelineObj;
+            }
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
@@ -1205,6 +1218,8 @@
             }
 
             __scheduleUpdate__();
+
+            return timelineObj;
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
@@ -1218,11 +1233,15 @@
             __mainViewError = __mainView.status(timeFrom, timeTo, false, true);
 
             __scheduleUpdate__();
+
+            return timelineObj;
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
         timelineObj.click = function(callback) {
             __clickCallback = callback;
+
+            return timelineObj;
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
@@ -1230,6 +1249,8 @@
             __evaluateBounds__();
             __mainView.resize();
             __scrollBar.resize();
+
+            return timelineObj;
         };
         ///////////////////////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
